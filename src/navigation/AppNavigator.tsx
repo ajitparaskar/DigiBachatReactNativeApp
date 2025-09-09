@@ -58,7 +58,6 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const AppNavigator = () => {
-  // Start at Splash to route based on token
   return (
     <Stack.Navigator
       initialRouteName="Splash"
@@ -98,5 +97,3 @@ const AppNavigator = () => {
 };
 
 export default AppNavigator;
-
-
