@@ -86,17 +86,25 @@ export const typography = {
     lineHeight: 24,
     color: colors.gray700,
   },
+  labelMedium: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    lineHeight: 20,
+    color: colors.gray600,
+  },
   button: {
     fontSize: 16,
     fontWeight: '600' as const,
     lineHeight: 24,
     letterSpacing: 0.25,
+    color: colors.gray900,
   },
   buttonLarge: {
     fontSize: 18,
     fontWeight: '600' as const,
     lineHeight: 28,
     letterSpacing: 0.25,
+    color: colors.gray900,
   },
 };
 
@@ -147,5 +155,3 @@ export const AppTheme: Theme = {
 };
 
 export { colors };
-
-

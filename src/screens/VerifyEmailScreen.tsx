@@ -9,12 +9,12 @@ import PrimaryButton from '../components/ui/PrimaryButton';
 import Input from '../components/ui/Input';
 import { colors, typography, spacing, shadows } from '../theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, any> & {
+type Props = NativeStackScreenProps<RootStackParamList, 'VerifyEmail'> & {
   route: { params: { email: string } };
 };
 
 const VerifyEmailScreen: React.FC<Props> = ({ route, navigation }) => {
-  const emailParam = (route.params as any)?.email || '';
+  const emailParam = route.params.email || '';
   const [email, setEmail] = useState(emailParam);
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
@@ -66,19 +66,19 @@ const VerifyEmailScreen: React.FC<Props> = ({ route, navigation }) => {
       } else {
         throw new Error('Verification failed - no response data');
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Verification error:', e);
       
       let errorMessage = 'Failed to verify email. Please try again.';
       
-      if (e?.response?.data?.message) {
-        errorMessage = e.response.data.message;
-      } else if (e?.response?.status === 400) {
-        errorMessage = 'Invalid verification code. Please check and try again.';
-      } else if (e?.response?.status === 404) {
-        errorMessage = 'Email not found. Please register first.';
-      } else if (e?.message) {
-        errorMessage = e.message;
+      if (e && typeof e === 'object' && 'response' in e) {
+        const error = e as { response?: { data?: { message?: string } } };
+        if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        }
+      } else if (e && typeof e === 'object' && 'message' in e) {
+        const error = e as { message: string };
+        errorMessage = error.message;
       }
       
       Alert.alert('Verification Failed', errorMessage);
@@ -112,17 +112,19 @@ const VerifyEmailScreen: React.FC<Props> = ({ route, navigation }) => {
       } else {
         throw new Error('Failed to resend OTP');
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Resend OTP error:', e);
       
       let errorMessage = 'Failed to resend verification code. Please try again.';
       
-      if (e?.response?.data?.message) {
-        errorMessage = e.response.data.message;
-      } else if (e?.response?.status === 404) {
-        errorMessage = 'Email not found. Please register first.';
-      } else if (e?.message) {
-        errorMessage = e.message;
+      if (e && typeof e === 'object' && 'response' in e) {
+        const error = e as { response?: { data?: { message?: string } } };
+        if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        }
+      } else if (e && typeof e === 'object' && 'message' in e) {
+        const error = e as { message: string };
+        errorMessage = error.message;
       }
       
       Alert.alert('Resend Failed', errorMessage);
@@ -326,6 +328,3 @@ const styles = StyleSheet.create({
 });
 
 export default VerifyEmailScreen;
-
-
-

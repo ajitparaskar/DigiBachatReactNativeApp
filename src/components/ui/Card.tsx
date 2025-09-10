@@ -4,7 +4,7 @@ import { colors, spacing, borderRadius, shadows } from '../../theme';
 
 interface CardProps {
   children: React.ReactNode;
-  variant?: 'elevated' | 'outlined' | 'filled';
+  variant?: 'elevated' | 'outlined' | 'filled' | 'flat' | 'minimal';
   style?: ViewStyle;
 }
 
@@ -16,6 +16,8 @@ const Card: React.FC<CardProps> = ({ children, variant = 'elevated', style }) =>
         variant === 'elevated' && styles.elevated,
         variant === 'outlined' && styles.outlined,
         variant === 'filled' && styles.filled,
+        variant === 'flat' && styles.flat,
+        variant === 'minimal' && styles.minimal,
         style,
       ]}
     >
@@ -34,16 +36,24 @@ const styles = StyleSheet.create({
   },
   elevated: {
     ...shadows.medium,
+    backgroundColor: colors.cardElevated,
   },
   outlined: {
     borderWidth: 1,
-    borderColor: colors.gray200,
+    borderColor: colors.borderLight,
+    backgroundColor: colors.cardOutlined,
   },
   filled: {
-    backgroundColor: colors.gray100,
+    backgroundColor: colors.cardFilled,
+  },
+  flat: {
+    backgroundColor: colors.white,
+    borderRadius: 0,
+  },
+  minimal: {
+    backgroundColor: 'transparent',
+    padding: spacing.s,
   },
 });
 
 export default Card;
-
-

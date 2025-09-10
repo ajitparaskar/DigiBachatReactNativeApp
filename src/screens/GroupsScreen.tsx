@@ -1,18 +1,41 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { 
+  View, 
+  Text, 
+  FlatList, 
+  StyleSheet, 
+  Alert, 
+  TouchableOpacity, 
+  StatusBar, 
+  RefreshControl,
+  Dimensions
+} from 'react-native';
 import Container from '../components/ui/Container';
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import EmptyState from '../components/ui/EmptyState';
 import PrimaryButton from '../components/ui/PrimaryButton';
+import { FadeInView, SlideInView } from '../components/ui/AnimatedComponents';
 import { colors, typography, spacing, shadows } from '../theme';
 import { getUserGroupsApi } from '../services/api';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
+const { width } = Dimensions.get('window');
+
 type Group = {
-  id: number;
+  id: number | string;
   name: string;
   description?: string;
+  savings_amount?: number;
+  savings_frequency?: 'weekly' | 'monthly';
+  interest_rate?: number;
+  total_savings?: number;
+  group_code?: string;
+  is_leader?: boolean;
+  member_count?: number;
+  created_at?: string;
+  updated_at?: string;
 };
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Groups'>;
@@ -20,140 +43,202 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Groups'>;
 const GroupsScreen: React.FC<Props> = ({ navigation }) => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadGroups = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
+      const response = await getUserGroupsApi();
+      
+      if (response?.data?.success && response.data.data?.groups) {
+        const groupsData = response.data.data.groups;
+        setGroups(Array.isArray(groupsData) ? groupsData : []);
+      } else {
+        setGroups([]);
+      }
+    } catch (error: any) {
+      console.error('Error loading groups:', error);
+      setError('Failed to load groups. Please try again.');
+      setGroups([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await getUserGroupsApi();
-        const apiGroups = res.data?.data?.groups || res.data?.groups || [];
-        setGroups(apiGroups);
-      } catch (e: any) {
-        Alert.alert('Error', e?.message || 'Failed to load groups');
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+    loadGroups();
+  }, [loadGroups]);
+
+  const onRefresh = useCallback(() => {
+    loadGroups(true);
+  }, [loadGroups]);
+
+  const handleGroupPress = (group: Group) => {
+    navigation.navigate('GroupDetails', { groupId: Number(group.id) });
+  };
+
+  const handleCreateGroup = () => {
+    navigation.navigate('CreateGroup');
+  };
+
+  const handleJoinGroup = () => {
+    navigation.navigate('JoinGroup');
+  };
+
+  const getFrequencyText = (frequency?: string) => {
+    return frequency === 'weekly' ? 'Weekly' : 'Monthly';
+  };
+
+  const getStatusColor = (isLeader?: boolean) => {
+    return isLeader ? colors.brandTeal : colors.info;
+  };
+
+  const getStatusText = (isLeader?: boolean) => {
+    return isLeader ? 'Admin' : 'Member';
+  };
+
+  const renderGroupCard = ({ item: group, index }: { item: Group; index: number }) => (
+    <SlideInView delay={index * 100} key={group.id}>
+      <TouchableOpacity
+        style={styles.groupCard}
+        onPress={() => handleGroupPress(group)}
+        activeOpacity={0.7}
+      >
+        <Card style={styles.cardContent}>
+          <View style={styles.groupHeader}>
+            <View style={styles.groupInfo}>
+              <Text style={styles.groupName} numberOfLines={1}>
+                {group.name}
+              </Text>
+              <Text style={styles.groupDescription} numberOfLines={2}>
+                {group.description || 'No description available'}
+              </Text>
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(group.is_leader) }]}>
+              <Text style={styles.statusText}>
+                {getStatusText(group.is_leader)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.groupStats}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Total Savings</Text>
+              <Text style={styles.statValue}>
+                ₹{(group.total_savings || 0).toLocaleString()}
+              </Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Contribution</Text>
+              <Text style={styles.statValue}>
+                ₹{(group.savings_amount || 0).toLocaleString()}
+              </Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Frequency</Text>
+              <Text style={styles.statValue}>
+                {getFrequencyText(group.savings_frequency)}
+              </Text>
+            </View>
+          </View>
+
+          {group.member_count && (
+            <View style={styles.memberInfo}>
+              <Text style={styles.memberCount}>
+                👥 {group.member_count} member{group.member_count !== 1 ? 's' : ''}
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.groupFooter}>
+            <Text style={styles.groupCode}>
+              Code: {group.group_code || 'N/A'}
+            </Text>
+            <Text style={styles.chevron}>›</Text>
+          </View>
+        </Card>
+      </TouchableOpacity>
+    </SlideInView>
+  );
+
+  const renderEmptyState = () => (
+    <EmptyState
+      icon="👥"
+      title="No Groups Yet"
+      description="You haven't joined any savings groups yet. Create a new group or join an existing one to start your savings journey."
+      actionText="Create Group"
+      onAction={handleCreateGroup}
+      secondaryActionText="Join Group"
+      onSecondaryAction={handleJoinGroup}
+    />
+  );
+
+  const renderHeader = () => (
+    <FadeInView style={styles.header}>
+      <Text style={styles.title}>My Groups</Text>
+      <Text style={styles.subtitle}>
+        Manage your savings groups and track your progress
+      </Text>
+      
+      <View style={styles.actionButtons}>
+        <PrimaryButton
+          title="Create Group"
+          onPress={handleCreateGroup}
+          style={styles.actionButton}
+          variant="outline"
+        />
+        <PrimaryButton
+          title="Join Group"
+          onPress={handleJoinGroup}
+          style={styles.actionButton}
+        />
+      </View>
+    </FadeInView>
+  );
 
   if (loading) {
     return <LoadingSpinner text="Loading your groups..." />;
   }
 
-  const renderGroupItem = ({ item }: { item: Group }) => (
-    <TouchableOpacity 
-      onPress={() => navigation.navigate('GroupDetails', { groupId: item.id })}
-      style={styles.groupCard}
-      activeOpacity={0.7}
-    >
-      <View style={styles.groupIconContainer}>
-        <Text style={styles.groupIcon}>👥</Text>
-      </View>
-      <View style={styles.groupContent}>
-        <View style={styles.groupHeader}>
-          <Text style={styles.groupName}>{item.name}</Text>
-          <View style={styles.groupBadge}>
-            <Text style={styles.badgeText}>Active</Text>
-          </View>
-        </View>
-        {item.description ? (
-          <Text style={styles.groupDescription}>{item.description}</Text>
-        ) : (
-          <Text style={styles.groupDescription}>No description available</Text>
-        )}
-        <View style={styles.groupFooter}>
-          <Text style={styles.groupMembers}>👤 5 members</Text>
-          <Text style={styles.groupAmount}>₹ 25,000</Text>
-        </View>
-      </View>
-      <View style={styles.chevronContainer}>
-        <Text style={styles.chevron}>›</Text>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIconContainer}>
-        <Text style={styles.emptyIcon}>🏦</Text>
-      </View>
-      <Text style={styles.emptyTitle}>Start Your Savings Journey</Text>
-      <Text style={styles.emptyDescription}>
-        Create or join a group to begin saving together with friends, family, or colleagues. Build wealth through collective savings!
-      </Text>
-      <View style={styles.emptyFeatures}>
-        <View style={styles.feature}>
-          <Text style={styles.featureIcon}>🎯</Text>
-          <Text style={styles.featureText}>Set savings goals</Text>
-        </View>
-        <View style={styles.feature}>
-          <Text style={styles.featureIcon}>👥</Text>
-          <Text style={styles.featureText}>Save with others</Text>
-        </View>
-        <View style={styles.feature}>
-          <Text style={styles.featureIcon}>📈</Text>
-          <Text style={styles.featureText}>Track progress</Text>
-        </View>
-      </View>
-      <View style={styles.emptyActions}>
-        <PrimaryButton
-          title="Create Your First Group"
-          onPress={() => navigation.navigate('CreateGroup')}
-          size="large"
-          style={styles.createButton}
+  if (error) {
+    return (
+      <Container style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.backgroundSecondary} />
+        <EmptyState
+          icon="❌"
+          title="Error Loading Groups"
+          description={error}
+          actionText="Try Again"
+          onAction={() => loadGroups()}
         />
-        <PrimaryButton
-          title="Join Existing Group"
-          onPress={() => navigation.navigate('JoinGroup')}
-          variant="outline"
-          style={styles.joinButton}
-        />
-      </View>
-    </View>
-  );
+      </Container>
+    );
+  }
 
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor={colors.backgroundSecondary} />
       <Container style={styles.container}>
-        {groups.length === 0 ? (
-          renderEmptyState()
-        ) : (
-          <>
-            <View style={styles.header}>
-              <View style={styles.headerContent}>
-                <Text style={styles.title}>My Groups</Text>
-                <Text style={styles.subtitle}>
-                  {groups.length} active group{groups.length !== 1 ? 's' : ''}
-                </Text>
-              </View>
-              <TouchableOpacity 
-                style={styles.addButton}
-                onPress={() => navigation.navigate('CreateGroup')}
-              >
-                <Text style={styles.addButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <FlatList
-              data={groups}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={renderGroupItem}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
-            />
-            
-            <View style={styles.floatingActions}>
-              <PrimaryButton
-                title="Join Group"
-                onPress={() => navigation.navigate('JoinGroup')}
-                variant="outline"
-                style={styles.joinGroupButton}
-              />
-            </View>
-          </>
-        )}
+        <FlatList
+          data={groups}
+          renderItem={renderGroupCard}
+          keyExtractor={(item) => item.id.toString()}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
       </Container>
     </>
   );
@@ -161,192 +246,120 @@ const GroupsScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     backgroundColor: colors.backgroundSecondary,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.xl,
-    paddingTop: spacing.m,
+  listContent: {
+    paddingBottom: spacing.xl,
   },
-  headerContent: {
-    flex: 1,
+  header: {
+    backgroundColor: colors.white,
+    padding: spacing.l,
+    marginBottom: spacing.l,
+    borderBottomLeftRadius: spacing.l,
+    borderBottomRightRadius: spacing.l,
+    ...shadows.medium,
   },
   title: {
     ...typography.h2,
+    color: colors.gray900,
     marginBottom: spacing.xs,
   },
   subtitle: {
     ...typography.body,
     color: colors.gray600,
+    marginBottom: spacing.l,
   },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.brandTeal,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.medium,
+  actionButtons: {
+    flexDirection: 'row',
+    gap: spacing.m,
   },
-  addButtonText: {
-    fontSize: 24,
-    color: colors.white,
-    fontWeight: '300',
-  },
-  listContent: {
-    paddingBottom: spacing.xxl,
-  },
-  separator: {
-    height: spacing.m,
+  actionButton: {
+    flex: 1,
   },
   groupCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: spacing.l,
+    marginHorizontal: spacing.l,
+    marginBottom: spacing.m,
+  },
+  cardContent: {
     padding: spacing.l,
-    ...shadows.medium,
-    borderWidth: 1,
-    borderColor: colors.gray200,
-  },
-  groupIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.brandTeal,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.m,
-  },
-  groupIcon: {
-    fontSize: 24,
-    color: colors.white,
-  },
-  groupContent: {
-    flex: 1,
   },
   groupHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
+    alignItems: 'flex-start',
+    marginBottom: spacing.m,
+  },
+  groupInfo: {
+    flex: 1,
+    marginRight: spacing.m,
   },
   groupName: {
-    ...typography.labelLarge,
-    fontWeight: '600',
+    ...typography.h3,
     color: colors.gray900,
+    marginBottom: spacing.xs,
   },
-  groupBadge: {
-    backgroundColor: colors.successLight,
+  groupDescription: {
+    ...typography.body,
+    color: colors.gray600,
+    lineHeight: 20,
+  },
+  statusBadge: {
     paddingHorizontal: spacing.s,
     paddingVertical: spacing.xs,
     borderRadius: spacing.s,
   },
-  badgeText: {
-    ...typography.captionSmall,
-    color: colors.success,
+  statusText: {
+    ...typography.caption,
+    color: colors.white,
     fontWeight: '600',
   },
-  groupDescription: {
+  groupStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.m,
+    paddingVertical: spacing.s,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray200,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statLabel: {
     ...typography.caption,
     color: colors.gray500,
+    marginBottom: spacing.xs,
+  },
+  statValue: {
+    ...typography.labelLarge,
+    color: colors.gray900,
+    fontWeight: '600',
+  },
+  memberInfo: {
     marginBottom: spacing.s,
+  },
+  memberCount: {
+    ...typography.caption,
+    color: colors.gray600,
   },
   groupFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: spacing.s,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray200,
   },
-  groupMembers: {
+  groupCode: {
     ...typography.caption,
     color: colors.gray500,
-  },
-  groupAmount: {
-    ...typography.label,
-    color: colors.brandTeal,
-    fontWeight: '600',
-  },
-  chevronContainer: {
-    marginLeft: spacing.s,
   },
   chevron: {
     ...typography.h3,
     color: colors.gray400,
     fontWeight: '300',
   },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-  },
-  emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: colors.brandTeal,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xl,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    color: colors.white,
-  },
-  emptyTitle: {
-    ...typography.h2,
-    textAlign: 'center',
-    marginBottom: spacing.m,
-    color: colors.gray900,
-  },
-  emptyDescription: {
-    ...typography.body,
-    color: colors.gray600,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-    lineHeight: 28,
-  },
-  emptyFeatures: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginBottom: spacing.xl,
-  },
-  feature: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  featureIcon: {
-    fontSize: 32,
-    marginBottom: spacing.s,
-  },
-  featureText: {
-    ...typography.caption,
-    color: colors.gray600,
-    textAlign: 'center',
-  },
-  emptyActions: {
-    width: '100%',
-    gap: spacing.m,
-  },
-  createButton: {
-    marginBottom: 0,
-  },
-  joinButton: {
-    marginBottom: 0,
-    borderColor: colors.brandTeal,
-  },
-  floatingActions: {
-    paddingTop: spacing.m,
-  },
-  joinGroupButton: {
-    marginBottom: 0,
-    borderColor: colors.brandTeal,
-  },
 });
 
 export default GroupsScreen;
-
-

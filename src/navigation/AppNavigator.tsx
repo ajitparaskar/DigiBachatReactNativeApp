@@ -26,6 +26,10 @@ import AccountSettingsScreen from '../screens/AccountSettingsScreen';
 import HelpScreen from '../screens/HelpScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import GroupHistoryScreen from '../screens/GroupHistoryScreen';
+import LoansScreen from '../screens/LoansScreen';
+import LoanRequestScreen from '../screens/LoanRequestScreen';
+import FinancialReportsScreen from '../screens/FinancialReportsScreen';
+import QRScannerScreen from '../screens/QRScannerScreen';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -53,6 +57,10 @@ export type RootStackParamList = {
   Help: undefined;
   Notifications: undefined;
   GroupHistory: { groupId: number };
+  Loans: undefined;
+  LoanRequest: { groupId: string; groupName: string };
+  FinancialReports: undefined;
+  QRScanner: { onSuccess?: (groupCode: string) => void } | undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -92,6 +100,10 @@ const AppNavigator = () => {
       <Stack.Screen name="Help" component={HelpScreen} options={{ title: 'Help' }} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
       <Stack.Screen name="GroupHistory" component={GroupHistoryScreen} options={{ title: 'Group History' }} />
+      <Stack.Screen name="Loans" component={LoansScreen} options={{ title: 'Loans' }} />
+      <Stack.Screen name="LoanRequest" component={LoanRequestScreen} options={{ title: 'Request Loan' }} />
+      <Stack.Screen name="FinancialReports" component={FinancialReportsScreen} options={{ title: 'Financial Reports' }} />
+      <Stack.Screen name="QRScanner" component={QRScannerScreen} options={{ title: 'Scan QR Code', headerShown: false }} />
     </Stack.Navigator>
   );
 };

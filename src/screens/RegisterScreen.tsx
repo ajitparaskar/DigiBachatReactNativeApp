@@ -14,6 +14,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -67,7 +68,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         passwordLength: password.length
       });
       
-      const response = await registerApi(name.trim(), email.trim().toLowerCase(), password);
+      const response = await registerApi(name.trim(), email.trim().toLowerCase(), password, phone.trim());
       console.log('Registration response:', response?.data);
       
       if (response?.data) {
@@ -175,9 +176,17 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               />
               
               <Input
+                label="Phone Number (Optional)"
+                placeholder="Enter your phone number"
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
+              />
+              
+              <Input
                 label="Password"
                 placeholder="Create a strong password (min 6 characters)"
-                secureTextEntry
+                secureTextEntry={true}
                 value={password}
                 onChangeText={setPassword}
               />
@@ -185,7 +194,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               <Input
                 label="Confirm Password"
                 placeholder="Confirm your password"
-                secureTextEntry
+                secureTextEntry={true}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
               />
@@ -341,5 +350,3 @@ const styles = StyleSheet.create({
 });
 
 export default RegisterScreen;
-
-

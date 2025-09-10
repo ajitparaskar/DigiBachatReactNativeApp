@@ -4,7 +4,7 @@ import Container from '../components/ui/Container';
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { colors, typography, spacing, shadows } from '../theme';
-import { getUserTotalSavingsApi } from '../services/api';
+import { getUserTotalSavingsApi, getUserContributionsByGroupApi, getUserContributionsApi } from '../services/api';
 
 const TotalSavingsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -14,14 +14,68 @@ const TotalSavingsScreen: React.FC = () => {
     const load = async () => {
       try {
         const res = await getUserTotalSavingsApi();
-        const amount = res.data?.data?.totalSavings || res.data?.totalSavings || 0;
+        let amount = res.data?.data?.totalSavings || res.data?.totalSavings || 0;
+        
+        // Fallback method: Calculate from user contributions if primary returns 0
+        if (!amount || amount === 0) {
+          console.log('Primary total savings API returned 0, trying fallback method');
+          amount = await calculateTotalSavingsFromContributions();
+        }
+        
         setTotal(Number(amount) || 0);
+        console.log('Total savings loaded in TotalSavingsScreen:', amount);
       } catch (e: any) {
-        Alert.alert('Error', e?.message || 'Failed to load total savings');
+        console.error('Failed to load total savings:', e);
+        
+        // Final fallback: Try to calculate from contributions
+        try {
+          const fallbackTotal = await calculateTotalSavingsFromContributions();
+          setTotal(Number(fallbackTotal) || 0);
+          console.log('Used fallback total savings in TotalSavingsScreen:', fallbackTotal);
+        } catch (fallbackError) {
+          console.error('Fallback total savings calculation also failed:', fallbackError);
+          Alert.alert('Error', e?.message || 'Failed to load total savings');
+          setTotal(0);
+        }
       } finally {
         setLoading(false);
       }
     };
+    
+    const calculateTotalSavingsFromContributions = async (): Promise<number> => {
+      try {
+        // Method 1: Use getUserContributionsByGroupApi
+        const contributionsRes = await getUserContributionsByGroupApi();
+        if (contributionsRes.data?.success && contributionsRes.data?.data?.contributions) {
+          const total = contributionsRes.data.data.contributions.reduce((sum: number, contribution: any) => {
+            return sum + (contribution.total_amount || 0);
+          }, 0);
+          if (total > 0) {
+            console.log('Calculated total from contributions by group (TotalSavingsScreen):', total);
+            return total;
+          }
+        }
+        
+        // Method 2: Use getUserContributionsApi
+        const userContributionsRes = await getUserContributionsApi();
+        if (userContributionsRes.data?.success && userContributionsRes.data?.data?.contributions) {
+          const total = userContributionsRes.data.data.contributions.reduce((sum: number, contribution: any) => {
+            return sum + (contribution.amount || 0);
+          }, 0);
+          if (total > 0) {
+            console.log('Calculated total from user contributions (TotalSavingsScreen):', total);
+            return total;
+          }
+        }
+        
+        console.log('All fallback methods returned 0 or failed (TotalSavingsScreen)');
+        return 0;
+      } catch (error) {
+        console.error('Error calculating total savings from contributions (TotalSavingsScreen):', error);
+        return 0;
+      }
+    };
+    
     load();
   }, []);
 

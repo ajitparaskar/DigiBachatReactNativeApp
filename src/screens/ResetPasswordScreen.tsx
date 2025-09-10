@@ -31,8 +31,8 @@ const ResetPasswordScreen: React.FC = () => {
         <Text style={styles.title}>Reset Password</Text>
         <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} />
         <TextInput style={styles.input} placeholder="OTP" value={otp} onChangeText={setOtp} />
-        <TextInput style={styles.input} placeholder="New Password" value={password} onChangeText={setPassword} secureTextEntry />
-        <TextInput style={styles.input} placeholder="Confirm Password" value={confirm} onChangeText={setConfirm} secureTextEntry />
+        <TextInput style={styles.input} placeholder="New Password" value={password} onChangeText={setPassword} secureTextEntry={true} />
+        <TextInput style={styles.input} placeholder="Confirm Password" value={confirm} onChangeText={setConfirm} secureTextEntry={true} />
         <PrimaryButton title={loading ? 'Saving...' : 'Reset Password'} onPress={submit} disabled={loading} />
       </Card>
     </Container>
@@ -46,6 +46,3 @@ const styles = StyleSheet.create({
 });
 
 export default ResetPasswordScreen;
-
-
-

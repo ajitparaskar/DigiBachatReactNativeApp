@@ -76,7 +76,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               <Input
                 label="Password"
                 placeholder="Enter your password"
-                secureTextEntry
+                secureTextEntry={true}
                 value={password}
                 onChangeText={setPassword}
               />
@@ -189,5 +189,3 @@ const styles = StyleSheet.create({
 });
 
 export default LoginScreen;
-
-

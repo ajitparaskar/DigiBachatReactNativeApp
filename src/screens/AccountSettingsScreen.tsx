@@ -4,6 +4,9 @@ import Container from '../components/ui/Container';
 import Card from '../components/ui/Card';
 import PrimaryButton from '../components/ui/PrimaryButton';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import ComingSoon from '../components/ui/ComingSoon';
+import EmptyState from '../components/ui/EmptyState';
+import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { colors, typography, spacing, shadows } from '../theme';
 import { api, changePasswordApi, deleteAccountApi } from '../services/api';
 import { clearToken } from '../services/auth';
@@ -29,6 +32,7 @@ const AccountSettingsScreen: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
+        setLoading(true);
         const res = await api.get('/api/auth/me');
         const user = res.data?.data?.user || res.data?.user;
         if (user) {
@@ -36,18 +40,36 @@ const AccountSettingsScreen: React.FC = () => {
           setEmail(user.email || '');
           setPhone(user.phone || '');
         }
-      } catch (e) {}
+      } catch (error: any) {
+        console.error('Failed to load user profile:', error);
+        const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load profile';
+        Alert.alert('Error', errorMessage);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);
 
   const save = async () => {
-    setLoading(true);
     try {
-      await api.put('/api/auth/me', { name, phone });
-      Alert.alert('Saved', 'Profile updated');
-    } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Failed to save');
+      // Validation
+      if (!name?.trim()) {
+        Alert.alert('Validation Error', 'Name is required');
+        return;
+      }
+
+      setLoading(true);
+      await api.put('/api/auth/me', { 
+        name: name.trim(), 
+        phone: phone?.trim() || null 
+      });
+      
+      Alert.alert('Success', 'Profile updated successfully!');
+    } catch (error: any) {
+      console.error('Failed to save profile:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to save profile';
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -90,7 +112,7 @@ const AccountSettingsScreen: React.FC = () => {
   };
 
   return (
-    <>
+    <ErrorBoundary>
       <StatusBar barStyle="dark-content" backgroundColor={colors.backgroundSecondary} />
       <Container style={styles.container}>
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -132,7 +154,7 @@ const AccountSettingsScreen: React.FC = () => {
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Current Password</Text>
             <TextInput 
-              secureTextEntry 
+              secureTextEntry={true}
               style={styles.input} 
               placeholder="Enter your current password" 
               value={currentPassword} 
@@ -144,7 +166,7 @@ const AccountSettingsScreen: React.FC = () => {
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>New Password</Text>
             <TextInput 
-              secureTextEntry 
+              secureTextEntry={true}
               style={styles.input} 
               placeholder="Enter new password (min 6 characters)" 
               value={newPassword} 
@@ -156,7 +178,7 @@ const AccountSettingsScreen: React.FC = () => {
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Confirm New Password</Text>
             <TextInput 
-              secureTextEntry 
+              secureTextEntry={true}
               style={styles.input} 
               placeholder="Confirm your new password" 
               value={confirmPassword} 
@@ -234,53 +256,64 @@ const AccountSettingsScreen: React.FC = () => {
       )}
 
       {tab === 'preferences' && (
-        <Card variant="elevated" style={styles.tabCard}>
-          <Text style={styles.tabTitle}>⚙️ App Preferences</Text>
-          <TextInput style={styles.input} placeholder="Language (en/hi/mr/gu)" value={prefs.language} onChangeText={(v) => setPrefs({ ...prefs, language: v })} />
-          <TextInput style={styles.input} placeholder="Currency (INR/USD/EUR)" value={prefs.currency} onChangeText={(v) => setPrefs({ ...prefs, currency: v })} />
-          <TextInput style={styles.input} placeholder="Theme (light/dark)" value={prefs.theme} onChangeText={(v) => setPrefs({ ...prefs, theme: v })} />
-          <TextInput style={styles.input} placeholder="Date Format (DD/MM/YYYY)" value={prefs.dateFormat} onChangeText={(v) => setPrefs({ ...prefs, dateFormat: v })} />
-          <TextInput style={styles.input} placeholder="Timezone (e.g., Asia/Kolkata)" value={prefs.timezone} onChangeText={(v) => setPrefs({ ...prefs, timezone: v })} />
-          <PrimaryButton title="Save Preferences" onPress={() => Alert.alert('Saved', 'Preferences saved')} />
-        </Card>
+        <ComingSoon
+          icon="⚙️"
+          title="App Preferences"
+          description="Customize your app experience with language, theme, currency, and date format options. These features are being developed to provide you with a fully personalized experience."
+          showNotifyButton={true}
+          onNotifyPress={() => Alert.alert('Notifications', 'We\'ll notify you when preferences customization is available!')}
+          variant="card"
+        />
       )}
 
       {tab === 'payment' && (
-        <Card variant="elevated" style={styles.tabCard}>
-          <Text style={styles.tabTitle}>💳 Payment & Account</Text>
-          <Text style={styles.infoText}>Payment method management will be available in a future update. Currently, all transactions are processed through UPI.</Text>
-          <View style={styles.dangerZone}>
-            <Text style={styles.dangerTitle}>⚠️ Danger Zone</Text>
-            <PrimaryButton
-              title="Delete Account"
-              variant="outline"
-              style={styles.deleteButton}
-              onPress={() => {
-                Alert.alert(
-                  'Delete Account',
-                  'This will permanently delete your account and data. Continue?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Delete', style: 'destructive', onPress: async () => {
-                        try {
-                          await deleteAccountApi();
-                          await clearToken();
-                          Alert.alert('Account Deleted', 'Your account has been deleted.');
-                          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-                        } catch (e: any) {
-                          Alert.alert('Failed', e?.message || 'Unable to delete account');
-                        }
-                      } },
-                  ]
-                );
-              }}
-            />
-          </View>
-        </Card>
+        <View>
+          <ComingSoon
+            icon="💳"
+            title="Payment Methods"
+            description="Manage your payment methods, cards, and UPI accounts. Set up automatic contributions and view payment history. Advanced payment features are being developed."
+            showNotifyButton={true}
+            onNotifyPress={() => Alert.alert('Notifications', 'We\'ll notify you when payment management is available!')}
+            variant="card"
+          />
+          
+          <Card variant="elevated" style={styles.tabCard}>
+            <View style={styles.dangerZone}>
+              <Text style={styles.dangerTitle}>⚠️ Danger Zone</Text>
+              <Text style={styles.dangerDescription}>
+                Permanently delete your account and all associated data. This action cannot be undone.
+              </Text>
+              <PrimaryButton
+                title="Delete Account"
+                variant="outline"
+                style={styles.deleteButton}
+                onPress={() => {
+                  Alert.alert(
+                    'Delete Account',
+                    'This will permanently delete your account and data. Continue?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Delete', style: 'destructive', onPress: async () => {
+                          try {
+                            await deleteAccountApi();
+                            await clearToken();
+                            Alert.alert('Account Deleted', 'Your account has been deleted.');
+                            navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+                          } catch (e: any) {
+                            Alert.alert('Failed', e?.message || 'Unable to delete account');
+                          }
+                        } },
+                    ]
+                  );
+                }}
+              />
+            </View>
+          </Card>
+        </View>
       )}
         </ScrollView>
       </Container>
-    </>
+    </ErrorBoundary>
   );
 };
 
@@ -376,7 +409,13 @@ const styles = StyleSheet.create({
   dangerTitle: {
     ...typography.labelLarge,
     color: colors.error,
-    marginBottom: spacing.m,
+    marginBottom: spacing.s,
+  },
+  dangerDescription: {
+    ...typography.body,
+    color: colors.gray600,
+    marginBottom: spacing.l,
+    lineHeight: 20,
   },
   deleteButton: {
     borderColor: colors.error,

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/AppNavigator';
 import Container from '../components/ui/Container';
 import Card from '../components/ui/Card';
 import PrimaryButton from '../components/ui/PrimaryButton';
@@ -7,40 +9,119 @@ import Input from '../components/ui/Input';
 import { colors, typography, spacing, shadows } from '../theme';
 import { createGroupApi } from '../services/api';
 
-const CreateGroupScreen: React.FC = () => {
+type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
+
+const CreateGroupScreen: React.FC<Props> = ({ navigation }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [frequency, setFrequency] = useState<'weekly' | 'monthly'>('monthly');
-  const [interestRate, setInterestRate] = useState('0');
+  const [interestRate, setInterestRate] = useState('10');
   const [duration, setDuration] = useState('12');
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{
+    name?: string;
+    amount?: string;
+    interestRate?: string;
+    duration?: string;
+  }>({});
 
-  const create = async () => {
-    if (!name || !amount) {
-      Alert.alert('Missing fields', 'Name and amount are required');
+  const validateForm = () => {
+    const newErrors: typeof errors = {};
+
+    if (!name.trim()) {
+      newErrors.name = 'Group name is required';
+    } else if (name.trim().length < 3) {
+      newErrors.name = 'Group name must be at least 3 characters';
+    }
+
+    if (!amount.trim()) {
+      newErrors.amount = 'Savings amount is required';
+    } else {
+      const numAmount = parseFloat(amount);
+      if (isNaN(numAmount) || numAmount <= 0) {
+        newErrors.amount = 'Please enter a valid amount greater than 0';
+      } else if (numAmount > 100000) {
+        newErrors.amount = 'Amount cannot exceed ₹1,00,000';
+      }
+    }
+
+    const numInterestRate = parseFloat(interestRate);
+    if (isNaN(numInterestRate) || numInterestRate < 0 || numInterestRate > 50) {
+      newErrors.interestRate = 'Interest rate must be between 0-50%';
+    }
+
+    const numDuration = parseInt(duration);
+    if (isNaN(numDuration) || numDuration < 1 || numDuration > 60) {
+      newErrors.duration = 'Duration must be between 1-60 months';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleCreateGroup = async () => {
+    if (!validateForm()) {
       return;
     }
+
     setLoading(true);
     try {
-      await createGroupApi({
-        name,
-        description,
+      const response = await createGroupApi({
+        name: name.trim(),
+        description: description.trim(),
         savings_frequency: frequency,
         savings_amount: Number(amount),
         interest_rate: Number(interestRate),
         default_loan_duration: Number(duration),
       });
-      Alert.alert('Success', 'Group created successfully!');
-      setName('');
-      setDescription('');
-      setAmount('');
-      setInterestRate('0');
-      setDuration('12');
-    } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Failed to create group');
+
+      if (response.data?.success) {
+        Alert.alert(
+          'Group Created!',
+          `Your savings group "${name}" has been created successfully. Share the group code with others to invite them.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setName('');
+                setDescription('');
+                setAmount('');
+                setInterestRate('10');
+                setDuration('12');
+                navigation.navigate('Groups');
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', response.data?.message || 'Failed to create group');
+      }
+    } catch (error: any) {
+      console.error('Create group error:', error);
+      Alert.alert(
+        'Creation Failed',
+        error.response?.data?.message || error.message || 'Failed to create group. Please try again.'
+      );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const formatAmount = (text: string) => {
+    const cleaned = text.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      return parts[0] + '.' + parts.slice(1).join('');
+    }
+    return cleaned;
+  };
+
+  const handleAmountChange = (text: string) => {
+    const formatted = formatAmount(text);
+    setAmount(formatted);
+    if (errors.amount && formatted) {
+      setErrors(prev => ({ ...prev, amount: undefined }));
     }
   };
 
@@ -48,249 +129,261 @@ const CreateGroupScreen: React.FC = () => {
     <>
       <StatusBar barStyle="dark-content" backgroundColor={colors.backgroundSecondary} />
       <KeyboardAvoidingView 
-        style={styles.keyboardView} 
+        style={styles.container} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Container scrollable style={styles.container}>
-          <View style={styles.header}>
-            <View style={styles.headerIcon}>
-              <Text style={styles.iconText}>🏦</Text>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <Container style={styles.content}>
+            <View style={styles.header}>
+              <Text style={styles.headerIcon}>➕</Text>
+              <Text style={styles.title}>Create New Group</Text>
+              <Text style={styles.subtitle}>
+                Start a new savings group and invite friends or family to save together.
+              </Text>
             </View>
-            <Text style={styles.title}>Create New Group</Text>
-            <Text style={styles.subtitle}>
-              Set up a savings group and invite members to join your financial journey together
-            </Text>
-          </View>
 
-          <Card variant="elevated" style={styles.detailsCard}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Group Details</Text>
-              <Text style={styles.sectionSubtitle}>Basic information about your group</Text>
-            </View>
-            
-            <Input
-              label="Group Name *"
-              placeholder="e.g., Family Savings Circle"
-              value={name}
-              onChangeText={setName}
-            />
-            
-            <Input
-              label="Description"
-              placeholder="What is this group for? (optional)"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={3}
-            />
-          </Card>
+            <Card style={styles.formCard}>
+              <View style={styles.form}>
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Basic Information</Text>
+                  
+                  <Input
+                    label="Group Name"
+                    value={name}
+                    onChangeText={(text) => {
+                      setName(text);
+                      if (errors.name) setErrors(prev => ({ ...prev, name: undefined }));
+                    }}
+                    placeholder="Enter group name"
+                    error={errors.name}
+                    leftIcon="👥"
+                    autoCapitalize="words"
+                    maxLength={50}
+                  />
 
-          <Card variant="elevated" style={styles.configCard}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Savings Configuration</Text>
-              <Text style={styles.sectionSubtitle}>Set up contribution and loan terms</Text>
-            </View>
-            
-            <Input
-              label="Savings Amount *"
-              placeholder="Enter amount per contribution"
-              keyboardType="numeric"
-              value={amount}
-              onChangeText={setAmount}
-              leftIcon={<Text style={styles.currencyIcon}>₹</Text>}
-            />
-            
-            <View style={styles.frequencyContainer}>
-              <Text style={styles.frequencyLabel}>Contribution Frequency</Text>
-              <View style={styles.frequencyOptions}>
-                <TouchableOpacity 
-                  style={[styles.frequencyOption, frequency === 'weekly' && styles.frequencyActive]}
-                  onPress={() => setFrequency('weekly')}
-                >
-                  <Text style={[styles.frequencyText, frequency === 'weekly' && styles.frequencyTextActive]}>Weekly</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.frequencyOption, frequency === 'monthly' && styles.frequencyActive]}
-                  onPress={() => setFrequency('monthly')}
-                >
-                  <Text style={[styles.frequencyText, frequency === 'monthly' && styles.frequencyTextActive]}>Monthly</Text>
-                </TouchableOpacity>
+                  <Input
+                    label="Description (Optional)"
+                    value={description}
+                    onChangeText={setDescription}
+                    placeholder="Describe your group's purpose"
+                    leftIcon="📝"
+                    multiline={true}
+                    numberOfLines={3}
+                    maxLength={200}
+                  />
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Savings Settings</Text>
+                  
+                  <Input
+                    label="Savings Amount (₹)"
+                    value={amount}
+                    onChangeText={handleAmountChange}
+                    placeholder="0.00"
+                    error={errors.amount}
+                    leftIcon="💰"
+                    keyboardType="decimal-pad"
+                  />
+
+                  <View style={styles.frequencyContainer}>
+                    <Text style={styles.frequencyLabel}>Savings Frequency</Text>
+                    <View style={styles.frequencyButtons}>
+                      <TouchableOpacity
+                        style={[
+                          styles.frequencyButton,
+                          frequency === 'weekly' && styles.frequencyButtonActive,
+                        ]}
+                        onPress={() => setFrequency('weekly')}
+                      >
+                        <Text style={[
+                          styles.frequencyButtonText,
+                          frequency === 'weekly' && styles.frequencyButtonTextActive,
+                        ]}>
+                          Weekly
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.frequencyButton,
+                          frequency === 'monthly' && styles.frequencyButtonActive,
+                        ]}
+                        onPress={() => setFrequency('monthly')}
+                      >
+                        <Text style={[
+                          styles.frequencyButtonText,
+                          frequency === 'monthly' && styles.frequencyButtonTextActive,
+                        ]}>
+                          Monthly
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Loan Settings</Text>
+                  
+                  <Input
+                    label="Interest Rate (%)"
+                    value={interestRate}
+                    onChangeText={(text) => {
+                      setInterestRate(text.replace(/[^0-9.]/g, ''));
+                      if (errors.interestRate) setErrors(prev => ({ ...prev, interestRate: undefined }));
+                    }}
+                    placeholder="10"
+                    error={errors.interestRate}
+                    leftIcon="📈"
+                    keyboardType="decimal-pad"
+                  />
+
+                  <Input
+                    label="Default Loan Duration (months)"
+                    value={duration}
+                    onChangeText={(text) => {
+                      setDuration(text.replace(/[^0-9]/g, ''));
+                      if (errors.duration) setErrors(prev => ({ ...prev, duration: undefined }));
+                    }}
+                    placeholder="12"
+                    error={errors.duration}
+                    leftIcon="📅"
+                    keyboardType="number-pad"
+                  />
+                </View>
+
+                <View style={styles.summaryBox}>
+                  <Text style={styles.summaryIcon}>📋</Text>
+                  <View style={styles.summaryContent}>
+                    <Text style={styles.summaryTitle}>Group Summary</Text>
+                    <Text style={styles.summaryText}>
+                      Members will save ₹{amount || '0'} {frequency} with {interestRate || '0'}% interest on loans.
+                    </Text>
+                  </View>
+                </View>
+
+                <PrimaryButton
+                  title={loading ? 'Creating Group...' : 'Create Group'}
+                  onPress={handleCreateGroup}
+                  loading={loading}
+                  disabled={loading || !name.trim() || !amount.trim()}
+                  style={styles.createButton}
+                />
               </View>
-            </View>
-            
-            <Input
-              label="Interest Rate (%)"
-              placeholder="Annual interest rate"
-              keyboardType="numeric"
-              value={interestRate}
-              onChangeText={setInterestRate}
-              rightIcon={<Text style={styles.percentIcon}>%</Text>}
-            />
-            
-            <Input
-              label="Default Loan Duration (months)"
-              placeholder="Loan repayment period"
-              keyboardType="numeric"
-              value={duration}
-              onChangeText={setDuration}
-            />
-          </Card>
-
-          <Card variant="outlined" style={styles.summaryCard}>
-            <View style={styles.summaryHeader}>
-              <Text style={styles.summaryTitle}>📊 Summary</Text>
-            </View>
-            <View style={styles.summaryContent}>
-              <Text style={styles.summaryText}>Members will contribute <Text style={styles.highlight}>₹{amount || '0'}</Text> {frequency}</Text>
-              <Text style={styles.summaryText}>Interest rate: <Text style={styles.highlight}>{interestRate || '0'}%</Text> per year</Text>
-              <Text style={styles.summaryText}>Default loan duration: <Text style={styles.highlight}>{duration || '12'}</Text> months</Text>
-            </View>
-          </Card>
-
-          <View style={styles.actions}>
-            <PrimaryButton 
-              title={loading ? 'Creating Group...' : 'Create Group'} 
-              onPress={create} 
-              loading={loading}
-              size="large"
-            />
-          </View>
-        </Container>
+            </Card>
+          </Container>
+        </ScrollView>
       </KeyboardAvoidingView>
     </>
   );
 };
 
 const styles = StyleSheet.create({
-  keyboardView: {
+  container: {
     flex: 1,
     backgroundColor: colors.backgroundSecondary,
   },
-  container: {
-    backgroundColor: 'transparent',
+  scrollContent: {
+    flexGrow: 1,
+  },
+  content: {
+    flex: 1,
+    padding: spacing.l,
   },
   header: {
     alignItems: 'center',
     marginBottom: spacing.xl,
-    paddingTop: spacing.l,
   },
   headerIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.brandTeal,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.l,
-    ...shadows.medium,
-  },
-  iconText: {
-    fontSize: 36,
-    color: colors.white,
+    fontSize: 64,
+    marginBottom: spacing.m,
   },
   title: {
     ...typography.h2,
-    marginBottom: spacing.s,
+    color: colors.gray900,
     textAlign: 'center',
+    marginBottom: spacing.s,
   },
   subtitle: {
     ...typography.body,
     color: colors.gray600,
-    lineHeight: 28,
     textAlign: 'center',
-    paddingHorizontal: spacing.m,
+    lineHeight: 24,
+    maxWidth: 300,
   },
-  detailsCard: {
-    marginBottom: spacing.l,
+  formCard: {
+    marginBottom: spacing.xl,
   },
-  configCard: {
-    marginBottom: spacing.l,
+  form: {
+    gap: spacing.l,
   },
-  sectionHeader: {
-    marginBottom: spacing.l,
+  section: {
+    gap: spacing.m,
   },
   sectionTitle: {
-    ...typography.h3,
-    marginBottom: spacing.xs,
+    ...typography.h4,
     color: colors.gray900,
-  },
-  sectionSubtitle: {
-    ...typography.caption,
-    color: colors.gray500,
+    marginBottom: spacing.s,
   },
   frequencyContainer: {
-    marginBottom: spacing.m,
+    gap: spacing.s,
   },
   frequencyLabel: {
-    ...typography.label,
-    marginBottom: spacing.s,
+    ...typography.labelLarge,
     color: colors.gray700,
   },
-  frequencyOptions: {
+  frequencyButtons: {
     flexDirection: 'row',
     gap: spacing.s,
   },
-  frequencyOption: {
+  frequencyButton: {
     flex: 1,
     paddingVertical: spacing.m,
     paddingHorizontal: spacing.l,
     borderRadius: spacing.m,
+    backgroundColor: colors.gray100,
     borderWidth: 1,
-    borderColor: colors.gray300,
-    backgroundColor: colors.white,
+    borderColor: colors.gray200,
     alignItems: 'center',
   },
-  frequencyActive: {
+  frequencyButtonActive: {
     backgroundColor: colors.brandTeal,
     borderColor: colors.brandTeal,
   },
-  frequencyText: {
-    ...typography.label,
+  frequencyButtonText: {
+    ...typography.button,
     color: colors.gray700,
   },
-  frequencyTextActive: {
+  frequencyButtonTextActive: {
     color: colors.white,
-    fontWeight: '600',
   },
-  currencyIcon: {
-    ...typography.body,
-    color: colors.brandTeal,
-    fontWeight: '600',
+  summaryBox: {
+    flexDirection: 'row',
+    backgroundColor: colors.brandTeal + '10',
+    padding: spacing.l,
+    borderRadius: spacing.l,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.brandTeal,
   },
-  percentIcon: {
-    ...typography.body,
-    color: colors.gray500,
-  },
-  summaryCard: {
-    marginBottom: spacing.l,
-    backgroundColor: colors.infoLight,
-    borderColor: colors.info,
-  },
-  summaryHeader: {
-    marginBottom: spacing.m,
-  },
-  summaryTitle: {
-    ...typography.h4,
-    color: colors.info,
+  summaryIcon: {
+    fontSize: 20,
+    marginRight: spacing.m,
   },
   summaryContent: {
-    gap: spacing.s,
+    flex: 1,
+  },
+  summaryTitle: {
+    ...typography.labelLarge,
+    color: colors.brandTeal,
+    marginBottom: spacing.xs,
   },
   summaryText: {
-    ...typography.body,
+    ...typography.caption,
     color: colors.gray700,
+    lineHeight: 20,
   },
-  highlight: {
-    fontWeight: '600',
-    color: colors.brandTeal,
-  },
-  actions: {
-    marginTop: spacing.l,
-    paddingBottom: spacing.xl,
+  createButton: {
+    marginTop: spacing.m,
   },
 });
 
 export default CreateGroupScreen;
-
-
-

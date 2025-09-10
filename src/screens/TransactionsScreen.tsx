@@ -11,10 +11,26 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Transactions'>;
 
+interface Transaction {
+  id: number;
+  type: 'contribution' | 'withdrawal' | 'loan' | 'repayment';
+  amount: number;
+  date: string;
+  created_at?: string;
+  group?: string;
+  group_name?: string;
+  group_id?: number;
+  description?: string;
+}
+
+interface TransactionItemProps {
+  item: Transaction;
+}
+
 const TransactionsScreen: React.FC<Props> = ({ route }) => {
   const groupId = route.params?.groupId;
   const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<Transaction[]>([]);
   const [search, setSearch] = useState('');
   const [type, setType] = useState<'all' | 'contribution' | 'withdrawal' | 'loan' | 'repayment'>('all');
   const [dateRange, setDateRange] = useState<'7days'|'30days'|'90days'|'1year'>('30days');
@@ -47,24 +63,28 @@ const TransactionsScreen: React.FC<Props> = ({ route }) => {
   }, [items, search, type]);
 
   useEffect(() => {
-    const load = async () => {
+    const loadTransactions = async () => {
       try {
-        const res = groupId
+        setLoading(true);
+        const res = groupId 
           ? await getGroupTransactionsApi(groupId)
           : await getUserTransactionsApi();
-        const arr = res.data?.data?.transactions || res.data?.transactions || [];
+        
+        const arr: Transaction[] = res.data?.data?.transactions || res.data?.transactions || [];
         setItems(arr);
         if (!groupId) {
-          const unique = Array.from(new Set(arr.map((t: any) => String(t.group || t.group_name || '')))).filter(Boolean);
+          const unique = Array.from(new Set(arr.map((t: Transaction) => String(t.group || t.group_name || '')))).filter(Boolean) as string[];
           setGroups(unique);
         }
-      } catch (e: any) {
-        Alert.alert('Error', e?.message || 'Failed to load transactions');
+      } catch (e: unknown) {
+        const error = e as { message?: string };
+        Alert.alert('Error', error?.message || 'Failed to load transactions');
       } finally {
         setLoading(false);
       }
     };
-    load();
+
+    loadTransactions();
   }, [groupId]);
 
   if (loading) {
@@ -91,20 +111,27 @@ const TransactionsScreen: React.FC<Props> = ({ route }) => {
     }
   };
 
-  const renderTransactionItem = ({ item }: { item: any }) => (
+  const renderTransactionItem = ({ item }: { item: Transaction }) => (
     <TouchableOpacity style={styles.transactionItem} activeOpacity={0.7}>
       <View style={[styles.transactionIcon, { backgroundColor: getTransactionColor(item.type || 'contribution') + '20' }]}>
         <Text style={styles.transactionIconText}>{getTransactionIcon(item.type || 'contribution')}</Text>
       </View>
       <View style={styles.transactionContent}>
-        <Text style={styles.transactionTitle}>{item.type || 'Contribution'}</Text>
-        <Text style={styles.transactionDescription}>
-          {item.description || item.group || item.group_name || 'No description'}
+        <Text style={styles.transactionTitle}>
+          {item.type === 'contribution' ? 'Contribution' :
+           item.type === 'withdrawal' ? 'Withdrawal' :
+           item.type === 'loan' ? 'Loan' : 'Repayment'}
         </Text>
-        <Text style={styles.transactionDate}>{item.date || item.created_at}</Text>
+        <Text style={styles.transactionDate}>
+          {new Date(item.date || Date.now()).toLocaleDateString()}
+        </Text>
       </View>
-      <Text style={[styles.transactionAmount, { color: getTransactionColor(item.type || 'contribution') }]}>
-        {item.type === 'withdrawal' ? '-' : '+'}₹ {Number(item.amount || 0).toLocaleString()}
+      <Text style={[
+        styles.transactionAmount,
+        { color: getTransactionColor(item.type || 'contribution') }
+      ]}>
+        {item.type === 'contribution' || item.type === 'repayment' ? '+' : '-'}
+        ₹{(item.amount || 0).toLocaleString()}
       </Text>
     </TouchableOpacity>
   );
@@ -412,7 +439,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     textTransform: 'capitalize',
   },
-  transactionDescription: {
+  transactionGroup: {
     ...typography.caption,
     color: colors.gray500,
     marginBottom: spacing.xs,
@@ -451,6 +478,3 @@ const styles = StyleSheet.create({
 });
 
 export default TransactionsScreen;
-
-
-

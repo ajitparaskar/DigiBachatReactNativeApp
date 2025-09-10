@@ -5,7 +5,7 @@ import { colors, spacing, borderRadius, typography, shadows } from '../../theme'
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'text';
+  variant?: 'primary' | 'secondary' | 'outline' | 'text' | 'ghost';
   size?: 'medium' | 'large';
   loading?: boolean;
   disabled?: boolean;
@@ -44,13 +44,19 @@ const PrimaryButton: React.FC<ButtonProps> = ({
           backgroundColor: 'transparent',
           paddingVertical: spacing.xs,
         };
+      case 'ghost':
+        return {
+          backgroundColor: 'transparent',
+          paddingVertical: spacing.s,
+          paddingHorizontal: spacing.m,
+        };
       default:
         return {};
     }
   };
 
   const getTextColor = () => {
-    if (variant === 'outline' || variant === 'text') {
+    if (variant === 'outline' || variant === 'text' || variant === 'ghost') {
       return disabled ? colors.gray300 : colors.brandTeal;
     }
     return colors.white;
@@ -101,5 +107,3 @@ const styles = StyleSheet.create({
 });
 
 export default PrimaryButton;
-
-

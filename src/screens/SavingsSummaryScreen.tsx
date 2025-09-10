@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Alert, StatusBar, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Alert, StatusBar, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import Container from '../components/ui/Container';
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -8,6 +8,25 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { getGroupSavingsSummaryApi } from '../services/api';
 
+interface GroupMemberSavings {
+  user_id: number;
+  name: string;
+  email: string;
+  current_balance: number;
+  role: string;
+  total_contributed: number;
+  total_transactions: number;
+}
+
+interface GroupSavingsData {
+  group: {
+    name: string;
+    expected_contribution: number;
+  };
+  members: GroupMemberSavings[];
+  total_group_savings: number;
+}
+
 type Props = NativeStackScreenProps<RootStackParamList, any> & {
   route: { params: { groupId: number } };
 };
@@ -15,164 +34,303 @@ type Props = NativeStackScreenProps<RootStackParamList, any> & {
 const SavingsSummaryScreen: React.FC<Props> = ({ route }) => {
   const { groupId } = route.params as any;
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [savingsData, setSavingsData] = useState<GroupSavingsData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadGroupSavings = async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      
+      const response = await getGroupSavingsSummaryApi(groupId);
+      
+      if (response?.data?.data) {
+        setSavingsData(response.data.data);
+      } else if (response?.data) {
+        setSavingsData(response.data);
+      } else {
+        setError('No savings data available');
+      }
+    } catch (err: any) {
+      console.error('Failed to load group savings:', err);
+      setError('Failed to load group savings data');
+      Alert.alert('Error', err?.message || 'Failed to load savings summary');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await getGroupSavingsSummaryApi(groupId);
-        setSummary(res.data?.data || res.data || null);
-      } catch (e: any) {
-        Alert.alert('Error', e?.message || 'Failed to load summary');
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    if (groupId) {
+      loadGroupSavings();
+    }
   }, [groupId]);
+
+  const onRefresh = () => {
+    loadGroupSavings(true);
+  };
 
   if (loading) {
     return <LoadingSpinner text="Loading savings summary..." />;
   }
 
-  if (!summary) {
+  if (error || !savingsData) {
     return (
       <>
         <StatusBar barStyle="dark-content" backgroundColor={colors.backgroundSecondary} />
         <Container style={styles.container}>
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>📊</Text>
-            <Text style={styles.emptyTitle}>No Data Available</Text>
-            <Text style={styles.emptyDescription}>Unable to load savings summary at this time</Text>
+            <Text style={styles.emptyTitle}>Failed to Load Group Savings</Text>
+            <Text style={styles.emptyDescription}>
+              {error || 'Unable to load savings summary at this time'}
+            </Text>
+            <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={() => loadGroupSavings()}
+            >
+              <Text style={styles.retryButtonText}>🔄 Retry</Text>
+            </TouchableOpacity>
           </View>
         </Container>
       </>
     );
   }
 
-  const totalSavings = Number(summary.totalSavings || summary.total || 0);
-  const membersCount = summary.membersCount || summary.members?.length || 0;
-  const avgSavingsPerMember = membersCount > 0 ? totalSavings / membersCount : 0;
-  const targetAmount = summary.targetAmount || summary.goal || 0;
-  const progressPercentage = targetAmount > 0 ? (totalSavings / targetAmount) * 100 : 0;
+  // Sort members by total contributed (highest first)
+  const sortedMembers = [...savingsData.members].sort((a, b) => b.total_contributed - a.total_contributed);
+  const topContributor = sortedMembers[0];
+  
+  const stats = [
+    {
+      title: 'Total Group Savings',
+      value: `₹${savingsData.total_group_savings.toLocaleString()}`,
+      icon: '💰',
+      description: 'Across all members'
+    },
+    {
+      title: 'Active Members', 
+      value: savingsData.members.length.toString(),
+      icon: '👥',
+      description: 'Contributing members'
+    },
+    {
+      title: 'Expected Amount',
+      value: `₹${savingsData.group.expected_contribution.toLocaleString()}`,
+      icon: '🎯',
+      description: 'Per member per cycle'
+    },
+    {
+      title: 'Average Contribution',
+      value: savingsData.members.length > 0 
+        ? `₹${Math.round(savingsData.total_group_savings / savingsData.members.length).toLocaleString()}`
+        : '₹0',
+      icon: '📊',
+      description: 'Per member'
+    }
+  ];
 
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor={colors.backgroundSecondary} />
       <Container style={styles.container}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Savings Summary</Text>
-            <Text style={styles.subtitle}>Overview of group savings performance</Text>
-          </View>
-
-          <View style={styles.statsGrid}>
-            <Card variant="elevated" style={styles.statCard}>
-              <View style={styles.statHeader}>
-                <Text style={styles.statIcon}>💰</Text>
-                <Text style={styles.statLabel}>Total Savings</Text>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          {/* Header */}
+          <Card variant="elevated" style={styles.headerCard}>
+            <View style={styles.headerContent}>
+              <View>
+                <Text style={styles.headerTitle}>{savingsData.group.name} - Group Savings</Text>
+                <Text style={styles.headerSubtitle}>Track contributions by each member</Text>
               </View>
-              <Text style={styles.statValue}>₹ {totalSavings.toLocaleString()}</Text>
-              <Text style={styles.statTrend}>Group collective amount</Text>
-            </Card>
-
-            <Card variant="elevated" style={styles.statCard}>
-              <View style={styles.statHeader}>
-                <Text style={styles.statIcon}>👥</Text>
-                <Text style={styles.statLabel}>Active Members</Text>
+              <View style={styles.headerAmount}>
+                <Text style={styles.totalAmount}>₹{savingsData.total_group_savings.toLocaleString()}</Text>
+                <Text style={styles.totalAmountLabel}>Total Collected</Text>
               </View>
-              <Text style={styles.statValue}>{membersCount}</Text>
-              <Text style={styles.statTrend}>Contributing members</Text>
-            </Card>
-
-            <Card variant="elevated" style={styles.statCard}>
-              <View style={styles.statHeader}>
-                <Text style={styles.statIcon}>📊</Text>
-                <Text style={styles.statLabel}>Avg per Member</Text>
-              </View>
-              <Text style={styles.statValue}>₹ {avgSavingsPerMember.toLocaleString()}</Text>
-              <Text style={styles.statTrend}>Individual average</Text>
-            </Card>
-
-            {targetAmount > 0 && (
-              <Card variant="elevated" style={styles.statCard}>
-                <View style={styles.statHeader}>
-                  <Text style={styles.statIcon}>🎯</Text>
-                  <Text style={styles.statLabel}>Goal Progress</Text>
-                </View>
-                <Text style={styles.statValue}>{progressPercentage.toFixed(1)}%</Text>
-                <Text style={styles.statTrend}>of ₹ {targetAmount.toLocaleString()}</Text>
-              </Card>
-            )}
-          </View>
-
-          {targetAmount > 0 && (
-            <Card variant="elevated" style={styles.progressCard}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressTitle}>Goal Progress</Text>
-                <Text style={styles.progressPercentage}>{progressPercentage.toFixed(1)}%</Text>
-              </View>
-              <View style={styles.progressBarContainer}>
-                <View style={[styles.progressBar, { width: `${Math.min(progressPercentage, 100)}%` }]} />
-              </View>
-              <View style={styles.progressLabels}>
-                <Text style={styles.progressLabel}>₹ {totalSavings.toLocaleString()}</Text>
-                <Text style={styles.progressLabel}>₹ {targetAmount.toLocaleString()}</Text>
-              </View>
-            </Card>
-          )}
-
-          {summary.members && Array.isArray(summary.members) && (
-            <Card variant="elevated" style={styles.membersCard}>
-              <Text style={styles.membersTitle}>Member Contributions</Text>
-              <View style={styles.membersList}>
-                {summary.members.slice(0, 5).map((member: any, index: number) => (
-                  <View key={index} style={styles.memberItem}>
-                    <View style={styles.memberInfo}>
-                      <Text style={styles.memberName}>{member.name || `Member ${index + 1}`}</Text>
-                      <Text style={styles.memberAmount}>₹ {Number(member.amount || member.contribution || 0).toLocaleString()}</Text>
-                    </View>
-                    <View style={styles.memberProgress}>
-                      <View 
-                        style={[
-                          styles.memberProgressBar, 
-                          { width: `${Math.min((Number(member.amount || member.contribution || 0) / totalSavings) * 100, 100)}%` }
-                        ]} 
-                      />
-                    </View>
-                  </View>
-                ))}
-                {summary.members.length > 5 && (
-                  <Text style={styles.moreMembers}>+{summary.members.length - 5} more members</Text>
-                )}
-              </View>
-            </Card>
-          )}
-
-          <Card variant="elevated" style={styles.insightsCard}>
-            <View style={styles.insightsHeader}>
-              <Text style={styles.insightsTitle}>💡 Insights</Text>
             </View>
-            <View style={styles.insightsList}>
-              <View style={styles.insightItem}>
-                <Text style={styles.insightIcon}>📈</Text>
-                <View style={styles.insightContent}>
-                  <Text style={styles.insightText}>
-                    {progressPercentage >= 100 
-                      ? "Congratulations! You've reached your savings goal" 
-                      : progressPercentage >= 75 
-                      ? "You're close to reaching your savings goal" 
-                      : "Keep contributing regularly to reach your goal"}
-                  </Text>
+          </Card>
+
+          {/* Stats Grid */}
+          <View style={styles.statsGrid}>
+            {stats.map((stat, index) => (
+              <Card key={index} variant="elevated" style={styles.statCard}>
+                <View style={styles.statContent}>
+                  <View>
+                    <Text style={styles.statLabel}>{stat.title}</Text>
+                    <Text style={styles.statValue}>{stat.value}</Text>
+                    <Text style={styles.statDescription}>{stat.description}</Text>
+                  </View>
+                  <View style={styles.statIconContainer}>
+                    <Text style={styles.statIcon}>{stat.icon}</Text>
+                  </View>
+                </View>
+              </Card>
+            ))}
+          </View>
+
+          {/* Top Contributor */}
+          {topContributor && (
+            <Card variant="elevated" style={styles.topContributorCard}>
+              <View style={styles.topContributorContent}>
+                <View style={styles.crownContainer}>
+                  <Text style={styles.crownIcon}>👑</Text>
+                </View>
+                <View>
+                  <Text style={styles.topContributorLabel}>Top Contributor</Text>
+                  <Text style={styles.topContributorName}>{topContributor.name}</Text>
+                  <Text style={styles.topContributorAmount}>₹{topContributor.total_contributed.toLocaleString()} contributed</Text>
                 </View>
               </View>
-              <View style={styles.insightItem}>
-                <Text style={styles.insightIcon}>⚡</Text>
-                <View style={styles.insightContent}>
-                  <Text style={styles.insightText}>
-                    Average contribution per member is ₹ {avgSavingsPerMember.toLocaleString()}
-                  </Text>
+            </Card>
+          )}
+
+          {/* Members Savings Breakdown */}
+          <Card variant="elevated" style={styles.membersCard}>
+            <View style={styles.membersHeader}>
+              <Text style={styles.membersTitle}>Member Contributions</Text>
+              <TouchableOpacity onPress={() => loadGroupSavings(true)} style={styles.refreshButton}>
+                <Text style={styles.refreshText}>🔄 Refresh</Text>
+              </TouchableOpacity>
+            </View>
+
+            {savingsData.members.length > 0 ? (
+              <View style={styles.membersList}>
+                {sortedMembers.map((member, index) => {
+                  const isTopContributor = member.user_id === topContributor?.user_id;
+                  const contributionPercentage = savingsData.group.expected_contribution > 0 
+                    ? (member.total_contributed / savingsData.group.expected_contribution) * 100 
+                    : 0;
+
+                  return (
+                    <View
+                      key={member.user_id}
+                      style={[
+                        styles.memberItem,
+                        isTopContributor && styles.topContributorItem
+                      ]}
+                    >
+                      <View style={styles.memberHeader}>
+                        <View style={styles.memberNameSection}>
+                          <View style={styles.memberIcons}>
+                            {index === 0 && <Text style={styles.awardIcon}>🏆</Text>}
+                            {member.role === 'leader' && <Text style={styles.leaderIcon}>👑</Text>}
+                          </View>
+                          <View>
+                            <Text style={styles.memberName}>{member.name}</Text>
+                            <Text style={styles.memberEmail}>{member.email}</Text>
+                          </View>
+                          {member.role === 'leader' && (
+                            <View style={styles.leaderBadge}>
+                              <Text style={styles.leaderBadgeText}>Leader</Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.memberAmountSection}>
+                          <Text style={styles.memberTotalAmount}>
+                            ₹{member.total_contributed.toLocaleString()}
+                          </Text>
+                          <Text style={styles.memberTransactions}>
+                            {member.total_transactions} {member.total_transactions === 1 ? 'contribution' : 'contributions'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.memberStats}>
+                        <View style={styles.memberStatItem}>
+                          <Text style={styles.memberStatLabel}>Current Balance</Text>
+                          <Text style={styles.memberStatValue}>₹{member.current_balance.toLocaleString()}</Text>
+                        </View>
+                        <View style={styles.memberStatItem}>
+                          <Text style={styles.memberStatLabel}>Expected vs Actual</Text>
+                          <Text style={styles.memberStatValue}>{contributionPercentage.toFixed(0)}%</Text>
+                        </View>
+                        <View style={styles.memberStatItem}>
+                          <Text style={styles.memberStatLabel}>Share of Total</Text>
+                          <Text style={styles.memberStatValue}>
+                            {savingsData.total_group_savings > 0 
+                              ? ((member.total_contributed / savingsData.total_group_savings) * 100).toFixed(1)
+                              : '0'
+                            }%
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Progress Bar */}
+                      <View style={styles.progressSection}>
+                        <View style={styles.progressBarContainer}>
+                          <View
+                            style={[
+                              styles.memberProgressBar,
+                              {
+                                width: `${Math.min(contributionPercentage, 100)}%`,
+                                backgroundColor: isTopContributor ? colors.warning : colors.brandTeal
+                              }
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.progressText}>
+                          Progress towards expected: ₹{savingsData.group.expected_contribution.toLocaleString()}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.emptyMembers}>
+                <Text style={styles.emptyMembersIcon}>👥</Text>
+                <Text style={styles.emptyMembersTitle}>No contributions yet</Text>
+                <Text style={styles.emptyMembersText}>Members haven't started contributing to this group</Text>
+              </View>
+            )}
+          </Card>
+
+          {/* Group Insights */}
+          <Card variant="elevated" style={styles.insightsCard}>
+            <Text style={styles.insightsTitle}>Group Insights</Text>
+            <View style={styles.insightsGrid}>
+              <View style={styles.insightCard}>
+                <View style={styles.insightHeader}>
+                  <Text style={styles.insightIcon}>📈</Text>
+                  <Text style={styles.insightLabel}>Collection Rate</Text>
                 </View>
+                <Text style={styles.insightValue}>
+                  {savingsData.members.length > 0 && savingsData.group.expected_contribution > 0
+                    ? `${Math.round((savingsData.total_group_savings / (savingsData.members.length * savingsData.group.expected_contribution)) * 100)}%`
+                    : '0%'
+                  }
+                </Text>
+                <Text style={styles.insightDescription}>Of expected total</Text>
+              </View>
+              <View style={styles.insightCard}>
+                <View style={styles.insightHeader}>
+                  <Text style={styles.insightIcon}>👥</Text>
+                  <Text style={styles.insightLabel}>Active Rate</Text>
+                </View>
+                <Text style={styles.insightValue}>
+                  {savingsData.members.filter(m => m.total_contributed > 0).length}/{savingsData.members.length}
+                </Text>
+                <Text style={styles.insightDescription}>Members contributing</Text>
+              </View>
+              <View style={styles.insightCard}>
+                <View style={styles.insightHeader}>
+                  <Text style={styles.insightIcon}>🏆</Text>
+                  <Text style={styles.insightLabel}>Best Performer</Text>
+                </View>
+                <Text style={styles.insightValue}>
+                  {topContributor ? topContributor.name.split(' ')[0] : 'N/A'}
+                </Text>
+                <Text style={styles.insightDescription}>
+                  {topContributor ? `₹${topContributor.total_contributed.toLocaleString()}` : 'No contributions yet'}
+                </Text>
               </View>
             </View>
           </Card>
@@ -186,18 +344,38 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.backgroundSecondary,
   },
-  header: {
-    marginBottom: spacing.xl,
-    paddingTop: spacing.m,
+  // Header Card
+  headerCard: {
+    marginBottom: spacing.l,
+    backgroundColor: colors.brandTeal,
   },
-  title: {
-    ...typography.h2,
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    ...typography.h3,
+    color: colors.white,
     marginBottom: spacing.xs,
   },
-  subtitle: {
+  headerSubtitle: {
     ...typography.body,
-    color: colors.gray600,
+    color: colors.brandTealLight,
   },
+  headerAmount: {
+    alignItems: 'flex-end',
+  },
+  totalAmount: {
+    ...typography.h2,
+    color: colors.white,
+    fontWeight: '700',
+  },
+  totalAmountLabel: {
+    ...typography.caption,
+    color: colors.brandTealLight,
+  },
+  // Stats Grid
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -207,137 +385,262 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     minWidth: '45%',
-    marginBottom: 0,
   },
-  statHeader: {
+  statContent: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.m,
-  },
-  statIcon: {
-    fontSize: 24,
-    marginRight: spacing.s,
   },
   statLabel: {
     ...typography.caption,
-    color: colors.gray500,
+    color: colors.gray600,
+    marginBottom: spacing.xs,
   },
   statValue: {
     ...typography.h3,
     color: colors.gray900,
+    fontWeight: '700',
     marginBottom: spacing.xs,
   },
-  statTrend: {
-    ...typography.caption,
-    color: colors.gray600,
+  statDescription: {
+    ...typography.captionSmall,
+    color: colors.gray500,
   },
-  progressCard: {
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    backgroundColor: colors.brandTeal,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statIcon: {
+    fontSize: 20,
+    color: colors.white,
+  },
+  // Top Contributor
+  topContributorCard: {
+    backgroundColor: colors.warning,
     marginBottom: spacing.l,
   },
-  progressHeader: {
+  topContributorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  crownContainer: {
+    width: 56,
+    height: 56,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.m,
+  },
+  crownIcon: {
+    fontSize: 24,
+    color: colors.white,
+  },
+  topContributorLabel: {
+    ...typography.labelLarge,
+    color: colors.white,
+    marginBottom: spacing.xs,
+  },
+  topContributorName: {
+    ...typography.h3,
+    color: colors.white,
+    fontWeight: '700',
+  },
+  topContributorAmount: {
+    ...typography.body,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  // Members Card
+  membersCard: {
+    marginBottom: spacing.l,
+  },
+  membersHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.l,
   },
-  progressTitle: {
-    ...typography.h3,
-  },
-  progressPercentage: {
-    ...typography.h3,
-    color: colors.brandTeal,
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: colors.gray200,
-    borderRadius: 4,
-    marginBottom: spacing.m,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: colors.brandTeal,
-    borderRadius: 4,
-  },
-  progressLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  progressLabel: {
-    ...typography.caption,
-    color: colors.gray500,
-  },
-  membersCard: {
-    marginBottom: spacing.l,
-  },
   membersTitle: {
     ...typography.h3,
-    marginBottom: spacing.l,
+    color: colors.gray900,
+  },
+  refreshButton: {
+    paddingHorizontal: spacing.s,
+    paddingVertical: spacing.xs,
+  },
+  refreshText: {
+    ...typography.captionSmall,
+    color: colors.brandTeal,
   },
   membersList: {
     gap: spacing.m,
   },
   memberItem: {
-    marginBottom: spacing.s,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+    borderRadius: spacing.m,
+    padding: spacing.m,
   },
-  memberInfo: {
+  topContributorItem: {
+    borderColor: colors.warning,
+    backgroundColor: colors.warningLight,
+  },
+  memberHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.m,
+  },
+  memberNameSection: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    flex: 1,
+  },
+  memberIcons: {
+    flexDirection: 'row',
+    marginRight: spacing.s,
+  },
+  awardIcon: {
+    fontSize: 16,
+    marginRight: spacing.xs,
+  },
+  leaderIcon: {
+    fontSize: 16,
   },
   memberName: {
-    ...typography.body,
-    color: colors.gray700,
-  },
-  memberAmount: {
     ...typography.labelLarge,
     color: colors.gray900,
     fontWeight: '600',
   },
-  memberProgress: {
-    height: 4,
+  memberEmail: {
+    ...typography.captionSmall,
+    color: colors.gray500,
+  },
+  leaderBadge: {
+    backgroundColor: colors.brandTeal,
+    paddingHorizontal: spacing.s,
+    paddingVertical: spacing.xs,
+    borderRadius: spacing.s,
+    marginLeft: spacing.s,
+  },
+  leaderBadgeText: {
+    ...typography.captionSmall,
+    color: colors.white,
+    fontWeight: '600',
+  },
+  memberAmountSection: {
+    alignItems: 'flex-end',
+  },
+  memberTotalAmount: {
+    ...typography.h4,
+    color: colors.success,
+    fontWeight: '700',
+  },
+  memberTransactions: {
+    ...typography.captionSmall,
+    color: colors.gray500,
+  },
+  memberStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.m,
+  },
+  memberStatItem: {
+    alignItems: 'center',
+  },
+  memberStatLabel: {
+    ...typography.captionSmall,
+    color: colors.gray600,
+    marginBottom: spacing.xs,
+  },
+  memberStatValue: {
+    ...typography.labelLarge,
+    color: colors.gray900,
+    fontWeight: '600',
+  },
+  progressSection: {
+    marginTop: spacing.s,
+  },
+  progressBarContainer: {
+    height: 6,
     backgroundColor: colors.gray200,
-    borderRadius: 2,
+    borderRadius: 3,
+    marginBottom: spacing.xs,
   },
   memberProgressBar: {
     height: '100%',
-    backgroundColor: colors.brandTeal,
-    borderRadius: 2,
+    borderRadius: 3,
   },
-  moreMembers: {
-    ...typography.caption,
+  progressText: {
+    ...typography.captionSmall,
+    color: colors.gray500,
+  },
+  emptyMembers: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  emptyMembersIcon: {
+    fontSize: 48,
+    marginBottom: spacing.m,
+  },
+  emptyMembersTitle: {
+    ...typography.h4,
+    color: colors.gray600,
+    marginBottom: spacing.s,
+  },
+  emptyMembersText: {
+    ...typography.body,
     color: colors.gray500,
     textAlign: 'center',
-    marginTop: spacing.s,
   },
+  // Insights
   insightsCard: {
     marginBottom: spacing.xl,
   },
-  insightsHeader: {
-    marginBottom: spacing.l,
-  },
   insightsTitle: {
     ...typography.h3,
+    color: colors.gray900,
+    marginBottom: spacing.l,
   },
-  insightsList: {
+  insightsGrid: {
     gap: spacing.m,
   },
-  insightItem: {
+  insightCard: {
+    backgroundColor: colors.white,
+    padding: spacing.m,
+    borderRadius: spacing.m,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+    marginBottom: spacing.s,
+  },
+  insightHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    marginBottom: spacing.s,
   },
   insightIcon: {
-    fontSize: 20,
-    marginRight: spacing.m,
-    marginTop: spacing.xs,
+    fontSize: 16,
+    marginRight: spacing.s,
   },
-  insightContent: {
-    flex: 1,
-  },
-  insightText: {
-    ...typography.body,
+  insightLabel: {
+    ...typography.label,
     color: colors.gray700,
   },
+  insightValue: {
+    ...typography.h3,
+    color: colors.brandTeal,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  insightDescription: {
+    ...typography.captionSmall,
+    color: colors.gray500,
+  },
+  // Empty State & Retry
   emptyState: {
     flex: 1,
     justifyContent: 'center',
@@ -357,6 +660,17 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.gray500,
     textAlign: 'center',
+    marginBottom: spacing.l,
+  },
+  retryButton: {
+    backgroundColor: colors.brandTeal,
+    paddingHorizontal: spacing.l,
+    paddingVertical: spacing.m,
+    borderRadius: spacing.m,
+  },
+  retryButtonText: {
+    ...typography.labelLarge,
+    color: colors.white,
   },
 });
 

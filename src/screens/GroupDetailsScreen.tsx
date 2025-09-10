@@ -9,11 +9,9 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 import { getGroupApi, getGroupMembersApi } from '../services/api';
 import { colors, typography, spacing, shadows } from '../theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Groups'> & {
-  route: { params: { groupId: number } };
-};
+type Props = NativeStackScreenProps<RootStackParamList, 'GroupDetails'>;
 
-const GroupDetailsScreen: React.FC<Props> = ({ route, navigation }: any) => {
+const GroupDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
   const { groupId } = route.params as any;
   const [loading, setLoading] = useState(true);
   const [group, setGroup] = useState<any>(null);
@@ -198,6 +196,17 @@ const GroupDetailsScreen: React.FC<Props> = ({ route, navigation }: any) => {
               >
                 <Text style={styles.actionIcon}>➕</Text>
                 <Text style={styles.actionText}>Invite</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => navigation.navigate('LoanRequest', { 
+                  groupId: groupId.toString(), 
+                  groupName: group.name 
+                })}
+              >
+                <Text style={styles.actionIcon}>💰</Text>
+                <Text style={styles.actionText}>Request Loan</Text>
               </TouchableOpacity>
             </View>
             
