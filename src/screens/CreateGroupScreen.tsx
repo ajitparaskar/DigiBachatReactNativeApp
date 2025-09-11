@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, StatusBar, TouchableOpacity, Dimensions } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import Container from '../components/ui/Container';
@@ -8,6 +9,8 @@ import PrimaryButton from '../components/ui/PrimaryButton';
 import Input from '../components/ui/Input';
 import { colors, typography, spacing, shadows } from '../theme';
 import { createGroupApi } from '../services/api';
+
+const { width } = Dimensions.get('window');
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -127,25 +130,51 @@ const CreateGroupScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.backgroundSecondary} />
-      <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <StatusBar barStyle="light-content" backgroundColor="#0D7377" translucent />
+      <LinearGradient
+        colors={['#0D7377', '#14A085', '#41B3A3']}
+        start={{x: 0, y: 0}}
+        end={{x: 1, y: 1}}
+        style={styles.backgroundGradient}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Container style={styles.content}>
-            <View style={styles.header}>
-              <Text style={styles.headerIcon}>➕</Text>
-              <Text style={styles.title}>Create New Group</Text>
-              <Text style={styles.subtitle}>
+        <KeyboardAvoidingView 
+          style={styles.container} 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            {/* Premium Header Section */}
+            <View style={styles.premiumHeader}>
+              <LinearGradient
+                colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+                style={styles.headerIconContainer}
+              >
+                <Text style={styles.headerIcon}>✨</Text>
+              </LinearGradient>
+              <Text style={styles.premiumTitle}>Create New Group</Text>
+              <Text style={styles.premiumSubtitle}>
                 Start a new savings group and invite friends or family to save together.
               </Text>
             </View>
+            
+            <Container style={styles.content}>
 
-            <Card style={styles.formCard}>
-              <View style={styles.form}>
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Basic Information</Text>
+            {/* Premium Form Card */}
+            <View style={styles.premiumFormCard}>
+              <LinearGradient
+                colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.9)']}
+                style={styles.formGradientCard}
+              >
+                <View style={styles.form}>
+                <View style={styles.premiumSection}>
+                  <View style={styles.sectionHeader}>
+                    <LinearGradient
+                      colors={['#667eea', '#764ba2']}
+                      style={styles.sectionIconGradient}
+                    >
+                      <Text style={styles.sectionIconText}>👥</Text>
+                    </LinearGradient>
+                    <Text style={styles.premiumSectionTitle}>Basic Information</Text>
+                  </View>
                   
                   <Input
                     label="Group Name"
@@ -173,8 +202,16 @@ const CreateGroupScreen: React.FC<Props> = ({ navigation }) => {
                   />
                 </View>
 
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Savings Settings</Text>
+                <View style={styles.premiumSection}>
+                  <View style={styles.sectionHeader}>
+                    <LinearGradient
+                      colors={['#11998e', '#38ef7d']}
+                      style={styles.sectionIconGradient}
+                    >
+                      <Text style={styles.sectionIconText}>💰</Text>
+                    </LinearGradient>
+                    <Text style={styles.premiumSectionTitle}>Savings Settings</Text>
+                  </View>
                   
                   <Input
                     label="Savings Amount (₹)"
@@ -221,8 +258,16 @@ const CreateGroupScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                 </View>
 
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Loan Settings</Text>
+                <View style={styles.premiumSection}>
+                  <View style={styles.sectionHeader}>
+                    <LinearGradient
+                      colors={['#f093fb', '#f5576c']}
+                      style={styles.sectionIconGradient}
+                    >
+                      <Text style={styles.sectionIconText}>📈</Text>
+                    </LinearGradient>
+                    <Text style={styles.premiumSectionTitle}>Loan Settings</Text>
+                  </View>
                   
                   <Input
                     label="Interest Rate (%)"
@@ -251,78 +296,139 @@ const CreateGroupScreen: React.FC<Props> = ({ navigation }) => {
                   />
                 </View>
 
-                <View style={styles.summaryBox}>
-                  <Text style={styles.summaryIcon}>📋</Text>
+                <LinearGradient
+                  colors={['#667eea', '#764ba2']}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 0}}
+                  style={styles.premiumSummaryBox}
+                >
+                  <View style={styles.summaryIconWrapper}>
+                    <Text style={styles.premiumSummaryIcon}>📋</Text>
+                  </View>
                   <View style={styles.summaryContent}>
-                    <Text style={styles.summaryTitle}>Group Summary</Text>
-                    <Text style={styles.summaryText}>
+                    <Text style={styles.premiumSummaryTitle}>Group Summary</Text>
+                    <Text style={styles.premiumSummaryText}>
                       Members will save ₹{amount || '0'} {frequency} with {interestRate || '0'}% interest on loans.
                     </Text>
                   </View>
-                </View>
+                </LinearGradient>
 
-                <PrimaryButton
-                  title={loading ? 'Creating Group...' : 'Create Group'}
+                <TouchableOpacity
                   onPress={handleCreateGroup}
-                  loading={loading}
                   disabled={loading || !name.trim() || !amount.trim()}
-                  style={styles.createButton}
-                />
-              </View>
-            </Card>
+                  activeOpacity={0.8}
+                  style={[styles.premiumCreateButton, (loading || !name.trim() || !amount.trim()) && styles.premiumCreateButtonDisabled]}
+                >
+                  <LinearGradient
+                    colors={loading || !name.trim() || !amount.trim() ? ['#cccccc', '#999999'] : ['#11998e', '#38ef7d']}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 0}}
+                    style={styles.createButtonGradient}
+                  >
+                    <Text style={styles.createButtonText}>
+                      {loading ? '✨ Creating Group...' : '🚀 Create Group'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                </View>
+              </LinearGradient>
+            </View>
           </Container>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
     </>
   );
 };
 
 const styles = StyleSheet.create({
+  backgroundGradient: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundSecondary,
   },
   scrollContent: {
     flexGrow: 1,
   },
-  content: {
-    flex: 1,
-    padding: spacing.l,
-  },
-  header: {
+  premiumHeader: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    paddingTop: spacing.xxl + 20,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.l,
+  },
+  headerIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.m,
+    ...shadows.large,
   },
   headerIcon: {
-    fontSize: 64,
-    marginBottom: spacing.m,
+    fontSize: 40,
+    color: colors.white,
   },
-  title: {
+  premiumTitle: {
     ...typography.h2,
-    color: colors.gray900,
+    color: colors.white,
     textAlign: 'center',
     marginBottom: spacing.s,
+    fontWeight: '800',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
-  subtitle: {
+  premiumSubtitle: {
     ...typography.body,
-    color: colors.gray600,
+    color: 'rgba(255,255,255,0.9)',
     textAlign: 'center',
     lineHeight: 24,
     maxWidth: 300,
   },
-  formCard: {
+  content: {
+    flex: 1,
+    paddingHorizontal: spacing.l,
+    paddingBottom: spacing.xl,
+  },
+  premiumFormCard: {
     marginBottom: spacing.xl,
+    borderRadius: spacing.xxl,
+    overflow: 'hidden',
+    ...shadows.xlarge,
+  },
+  formGradientCard: {
+    padding: spacing.xl,
   },
   form: {
+    gap: spacing.xl,
+  },
+  premiumSection: {
     gap: spacing.l,
   },
-  section: {
-    gap: spacing.m,
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.m,
   },
-  sectionTitle: {
+  sectionIconGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.m,
+    ...shadows.medium,
+  },
+  sectionIconText: {
+    fontSize: 20,
+    color: colors.white,
+  },
+  premiumSectionTitle: {
     ...typography.h4,
     color: colors.gray900,
-    marginBottom: spacing.s,
+    fontWeight: '700',
   },
   frequencyContainer: {
     gap: spacing.s,
@@ -356,33 +462,54 @@ const styles = StyleSheet.create({
   frequencyButtonTextActive: {
     color: colors.white,
   },
-  summaryBox: {
+  premiumSummaryBox: {
     flexDirection: 'row',
-    backgroundColor: colors.brandTeal + '10',
     padding: spacing.l,
-    borderRadius: spacing.l,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.brandTeal,
+    borderRadius: spacing.xl,
+    alignItems: 'center',
+    ...shadows.large,
   },
-  summaryIcon: {
-    fontSize: 20,
+  summaryIconWrapper: {
     marginRight: spacing.m,
+  },
+  premiumSummaryIcon: {
+    fontSize: 24,
+    color: colors.white,
   },
   summaryContent: {
     flex: 1,
   },
-  summaryTitle: {
+  premiumSummaryTitle: {
     ...typography.labelLarge,
-    color: colors.brandTeal,
+    color: colors.white,
     marginBottom: spacing.xs,
+    fontWeight: '700',
   },
-  summaryText: {
+  premiumSummaryText: {
     ...typography.caption,
-    color: colors.gray700,
+    color: 'rgba(255,255,255,0.9)',
     lineHeight: 20,
   },
-  createButton: {
-    marginTop: spacing.m,
+  premiumCreateButton: {
+    marginTop: spacing.l,
+    borderRadius: spacing.xl,
+    overflow: 'hidden',
+    ...shadows.large,
+  },
+  premiumCreateButtonDisabled: {
+    opacity: 0.6,
+  },
+  createButtonGradient: {
+    paddingVertical: spacing.l,
+    paddingHorizontal: spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createButtonText: {
+    ...typography.button,
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
 

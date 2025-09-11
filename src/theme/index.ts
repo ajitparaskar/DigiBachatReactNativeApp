@@ -4,6 +4,7 @@ import { colors } from './colors';
 // Enhanced spacing system (using multiples of 4 for consistency)
 export const spacing = {
   none: 0,
+  xxs: 2,
   xs: 4,
   s: 8,
   m: 16,

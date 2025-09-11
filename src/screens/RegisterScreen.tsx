@@ -28,6 +28,10 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     return password.length >= 6;
   };
 
+  const validatePhone = (phone: string) => {
+    return /^\d{10}$/.test(phone);
+  };
+
   const onRegister = async () => {
     // Validate all fields
     if (!name.trim()) {
@@ -42,6 +46,16 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     
     if (!validateEmail(email)) {
       Alert.alert('Invalid Email', 'Please enter a valid email address');
+      return;
+    }
+    
+    if (!phone.trim()) {
+      Alert.alert('Missing Phone Number', 'Please enter your phone number');
+      return;
+    }
+    
+    if (!validatePhone(phone)) {
+      Alert.alert('Invalid Phone Number', 'Please enter a valid 10-digit phone number');
       return;
     }
     
@@ -176,11 +190,12 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               />
               
               <Input
-                label="Phone Number (Optional)"
-                placeholder="Enter your phone number"
+                label="Phone Number"
+                placeholder="Enter your 10-digit phone number"
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
+                maxLength={10}
               />
               
               <Input
@@ -200,15 +215,21 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               />
               
               <View style={styles.passwordRequirements}>
-                <Text style={styles.requirementsTitle}>Password Requirements:</Text>
-                <Text style={[styles.requirement, password.length >= 6 && styles.requirementMet]}>
-                  • At least 6 characters long
-                </Text>
-                <Text style={[styles.requirement, password === confirmPassword && password.length > 0 && styles.requirementMet]}>
-                  • Passwords must match
+                <Text style={styles.requirementsTitle}>Registration Requirements:</Text>
+                <Text style={[styles.requirement, name.trim().length > 0 && styles.requirementMet]}>
+                  • Full name provided
                 </Text>
                 <Text style={[styles.requirement, validateEmail(email) && styles.requirementMet]}>
                   • Valid email address
+                </Text>
+                <Text style={[styles.requirement, validatePhone(phone) && styles.requirementMet]}>
+                  • Valid 10-digit phone number
+                </Text>
+                <Text style={[styles.requirement, password.length >= 6 && styles.requirementMet]}>
+                  • Password at least 6 characters
+                </Text>
+                <Text style={[styles.requirement, password === confirmPassword && password.length > 0 && styles.requirementMet]}>
+                  • Passwords must match
                 </Text>
               </View>
               
@@ -216,7 +237,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 title={loading ? 'Creating Account...' : 'Create Account'} 
                 onPress={onRegister} 
                 loading={loading}
-                disabled={loading || !name.trim() || !email.trim() || !password || !confirmPassword || password !== confirmPassword || !validateEmail(email) || !validatePassword(password)}
+                disabled={loading || !name.trim() || !email.trim() || !phone.trim() || !password || !confirmPassword || password !== confirmPassword || !validateEmail(email) || !validatePhone(phone) || !validatePassword(password)}
                 size="large"
                 style={styles.registerButton}
               />

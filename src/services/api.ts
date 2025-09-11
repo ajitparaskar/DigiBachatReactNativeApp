@@ -18,7 +18,7 @@ export async function loginApi(email: string, password: string) {
   return api.post('/api/auth/login', { email, password });
 }
 
-export async function registerApi(name: string, email: string, password: string, phone?: string) {
+export async function registerApi(name: string, email: string, password: string, phone: string) {
   const payload = { name, email, password, phone };
   console.log('Registration API payload:', payload);
   console.log('API Base URL:', API_BASE_URL);
@@ -308,16 +308,21 @@ export async function makeContributionApi(groupId: string | number, contribution
 
 // Debug function to test and compare different total savings endpoints
 export async function debugTotalSavingsApi() {
-  console.log('=== DEBUG: Testing all total savings endpoints ===');
+  console.log('=== 🐛 DEBUG: Testing all total savings endpoints ===');
   
   try {
+    // Test authentication first
+    const token = await getToken();
+    console.log('🔑 Auth token status:', token ? 'Present' : 'Missing');
+    
     // Test primary endpoint
-    console.log('Testing getUserTotalSavingsApi...');
+    console.log('📊 Testing getUserTotalSavingsApi...');
     const totalSavingsRes = await getUserTotalSavingsApi();
-    console.log('Primary endpoint response:', {
+    console.log('✅ Primary endpoint response:', {
       status: totalSavingsRes.status,
-      data: totalSavingsRes.data,
-      totalSavings: totalSavingsRes.data?.data?.totalSavings || totalSavingsRes.data?.totalSavings
+      dataKeys: Object.keys(totalSavingsRes.data || {}),
+      fullData: JSON.stringify(totalSavingsRes.data, null, 2),
+      extractedValue: totalSavingsRes.data?.data?.total_savings || totalSavingsRes.data?.total_savings || 0
     });
     
     // Test contributions by group

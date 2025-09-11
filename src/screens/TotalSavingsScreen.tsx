@@ -4,17 +4,25 @@ import Container from '../components/ui/Container';
 import Card from '../components/ui/Card';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { colors, typography, spacing, shadows } from '../theme';
-import { getUserTotalSavingsApi, getUserContributionsByGroupApi, getUserContributionsApi } from '../services/api';
+import { getUserTotalSavingsApi, getUserContributionsByGroupApi, getUserContributionsApi, getUserGroupsApi } from '../services/api';
 
 const TotalSavingsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState<number>(0);
+  const [groupsCount, setGroupsCount] = useState<number>(0);
+  const [monthlyAvg, setMonthlyAvg] = useState<number>(0);
 
   useEffect(() => {
     const load = async () => {
       try {
         const res = await getUserTotalSavingsApi();
-        let amount = res.data?.data?.totalSavings || res.data?.totalSavings || 0;
+        let amount = res.data?.data?.total_savings || res.data?.total_savings || res.data?.data?.totalSavings || res.data?.totalSavings || 0;
+        
+        console.log('🎯 TotalSavingsScreen API Response:', {
+          status: res.status,
+          fullData: JSON.stringify(res.data, null, 2),
+          extractedAmount: amount
+        });
         
         // Fallback method: Calculate from user contributions if primary returns 0
         if (!amount || amount === 0) {
@@ -24,6 +32,10 @@ const TotalSavingsScreen: React.FC = () => {
         
         setTotal(Number(amount) || 0);
         console.log('Total savings loaded in TotalSavingsScreen:', amount);
+        
+        // Also fetch groups data
+        await loadGroupsData();
+        await loadContributionStats();
       } catch (e: any) {
         console.error('Failed to load total savings:', e);
         
@@ -44,35 +56,91 @@ const TotalSavingsScreen: React.FC = () => {
     
     const calculateTotalSavingsFromContributions = async (): Promise<number> => {
       try {
-        // Method 1: Use getUserContributionsByGroupApi
-        const contributionsRes = await getUserContributionsByGroupApi();
-        if (contributionsRes.data?.success && contributionsRes.data?.data?.contributions) {
-          const total = contributionsRes.data.data.contributions.reduce((sum: number, contribution: any) => {
-            return sum + (contribution.total_amount || 0);
-          }, 0);
-          if (total > 0) {
-            console.log('Calculated total from contributions by group (TotalSavingsScreen):', total);
-            return total;
+        // Method 1: Use getUserContributionsByGroupApi with better error handling
+        try {
+          const contributionsRes = await getUserContributionsByGroupApi();
+          if (contributionsRes.data?.success && contributionsRes.data?.data?.contributions) {
+            const total = contributionsRes.data.data.contributions.reduce((sum: number, contribution: any) => {
+              return sum + (contribution.total_amount || contribution.amount || 0);
+            }, 0);
+            if (total > 0) {
+              console.log('Calculated total from contributions by group (TotalSavingsScreen):', total);
+              return total;
+            }
           }
+        } catch (apiError: any) {
+          console.warn('getUserContributionsByGroupApi failed:', apiError.response?.status, apiError.message);
+          // Continue to fallback method instead of throwing
         }
         
-        // Method 2: Use getUserContributionsApi
-        const userContributionsRes = await getUserContributionsApi();
-        if (userContributionsRes.data?.success && userContributionsRes.data?.data?.contributions) {
-          const total = userContributionsRes.data.data.contributions.reduce((sum: number, contribution: any) => {
-            return sum + (contribution.amount || 0);
-          }, 0);
-          if (total > 0) {
-            console.log('Calculated total from user contributions (TotalSavingsScreen):', total);
-            return total;
+        // Method 2: Use getUserContributionsApi with better error handling
+        try {
+          const userContributionsRes = await getUserContributionsApi();
+          if (userContributionsRes.data?.success && userContributionsRes.data?.data?.contributions) {
+            const total = userContributionsRes.data.data.contributions.reduce((sum: number, contribution: any) => {
+              return sum + (contribution.total_amount || contribution.amount || 0);
+            }, 0);
+            if (total > 0) {
+              console.log('Calculated total from user contributions (TotalSavingsScreen):', total);
+              return total;
+            }
           }
+        } catch (apiError: any) {
+          console.warn('getUserContributionsApi failed:', apiError.response?.status, apiError.message);
+          // Continue to next fallback
         }
         
-        console.log('All fallback methods returned 0 or failed (TotalSavingsScreen)');
+        // Method 3: Try getUserTotalSavingsApi as final fallback
+        try {
+          const totalSavingsRes = await getUserTotalSavingsApi();
+          const amount = totalSavingsRes.data?.data?.total_savings || totalSavingsRes.data?.total_savings || totalSavingsRes.data?.data?.totalSavings || totalSavingsRes.data?.totalSavings || 0;
+          if (amount > 0) {
+            console.log('Used getUserTotalSavingsApi as fallback:', amount);
+            return Number(amount);
+          }
+        } catch (apiError: any) {
+          console.warn('getUserTotalSavingsApi fallback failed:', apiError.response?.status, apiError.message);
+        }
+        
+        console.log('All API methods returned 0 or failed (TotalSavingsScreen)');
         return 0;
       } catch (error) {
         console.error('Error calculating total savings from contributions (TotalSavingsScreen):', error);
         return 0;
+      }
+    };
+    
+    const loadGroupsData = async () => {
+      try {
+        const groupsRes = await getUserGroupsApi();
+        const groups = groupsRes.data?.data?.groups || groupsRes.data?.groups || [];
+        const activeGroups = groups.filter((group: any) => group.status === 'active' || !group.status);
+        setGroupsCount(activeGroups.length);
+        console.log('📊 Groups data loaded in TotalSavingsScreen:', activeGroups.length);
+      } catch (error) {
+        console.error('Failed to load groups data:', error);
+        setGroupsCount(0);
+      }
+    };
+    
+    const loadContributionStats = async () => {
+      try {
+        const contributionsRes = await getUserContributionsApi();
+        const contributions = contributionsRes.data?.data?.contributions || contributionsRes.data?.contributions || [];
+        
+        if (contributions.length > 0) {
+          const totalContributions = contributions.reduce((sum: number, contribution: any) => {
+            return sum + (contribution.total_amount || contribution.amount || 0);
+          }, 0);
+          
+          // Calculate monthly average (assuming data spans multiple months)
+          const avgMonthly = totalContributions / Math.max(contributions.length, 1);
+          setMonthlyAvg(Math.round(avgMonthly));
+          console.log('💳 Monthly average calculated in TotalSavingsScreen:', avgMonthly);
+        }
+      } catch (error) {
+        console.error('Failed to load contribution stats:', error);
+        setMonthlyAvg(0);
       }
     };
     
@@ -83,10 +151,10 @@ const TotalSavingsScreen: React.FC = () => {
     return <LoadingSpinner text="Loading total savings..." />;
   }
 
-  const monthlyGrowth = 8.5; // This would come from API in real implementation
-  const yearlyGrowth = 15.2;
-  const totalGroups = 3; // This would come from API
-  const avgMonthlyContribution = 12500;
+  const monthlyGrowth = total > 0 ? 8.5 : 0; // This would come from API in real implementation
+  const yearlyGrowth = total > 0 ? 15.2 : 0;
+  const totalGroups = groupsCount;
+  const avgMonthlyContribution = monthlyAvg;
 
   return (
     <>
@@ -365,6 +433,3 @@ const styles = StyleSheet.create({
 });
 
 export default TotalSavingsScreen;
-
-
-

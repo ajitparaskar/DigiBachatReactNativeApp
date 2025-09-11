@@ -329,7 +329,7 @@ const LoansScreen: React.FC<Props> = ({ navigation }) => {
                   {groups.filter(g => g.is_leader || g.created_by).length > 1 && (
                     <View style={styles.groupSelector}>
                       <Text style={styles.groupSelectorLabel}>Select Group:</Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
                         {groups.filter(g => g.is_leader || g.created_by).map(group => (
                           <TouchableOpacity
                             key={group.id}

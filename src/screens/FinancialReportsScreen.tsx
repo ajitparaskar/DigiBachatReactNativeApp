@@ -328,7 +328,7 @@ const FinancialReportsScreen: React.FC = () => {
             {/* Report Type */}
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Transaction Type</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
                 <View style={styles.filterOptions}>
                   {transactionTypes.map((type) => (
                     <TouchableOpacity
@@ -380,7 +380,7 @@ const FinancialReportsScreen: React.FC = () => {
             {groups.length > 0 && (
               <View style={styles.filterSection}>
                 <Text style={styles.filterLabel}>Group (Optional)</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
                   <View style={styles.groupOptions}>
                     <TouchableOpacity
                       style={[
