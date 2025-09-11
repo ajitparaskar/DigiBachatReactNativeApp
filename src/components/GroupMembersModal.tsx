@@ -6,8 +6,9 @@ import {
   Modal,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
+  Alert,
+
   Image,
 } from 'react-native';
 import { colors, typography, spacing } from '../theme';
@@ -25,7 +26,7 @@ interface GroupMember {
   last_contribution_date?: string;
   is_active: boolean;
 }
-
+//Group prop
 interface GroupMembersModalProps {
   visible: boolean;
   onClose: () => void;
