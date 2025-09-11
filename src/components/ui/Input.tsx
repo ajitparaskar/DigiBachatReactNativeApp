@@ -5,8 +5,8 @@ import { colors, spacing, borderRadius, typography } from '../../theme';
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
+  leftIcon?: React.ReactNode | string;
+  rightIcon?: React.ReactNode | string;
   variant?: 'default' | 'filled';
 }
 
@@ -45,7 +45,11 @@ const Input: React.FC<InputProps> = ({
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
       <View style={[styles.inputContainer, getInputStyle()]}>
-        {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
+        {leftIcon && (
+          <View style={styles.leftIcon}>
+            {typeof leftIcon === 'string' ? <Text>{leftIcon}</Text> : leftIcon}
+          </View>
+        )}
         <TextInput
           style={[styles.input, style]}
           placeholderTextColor={placeholderTextColor}
@@ -53,7 +57,11 @@ const Input: React.FC<InputProps> = ({
           onBlur={() => setIsFocused(false)}
           {...rest}
         />
-        {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
+        {rightIcon && (
+          <View style={styles.rightIcon}>
+            {typeof rightIcon === 'string' ? <Text>{rightIcon}</Text> : rightIcon}
+          </View>
+        )}
       </View>
       {error && <Text style={styles.error}>{error}</Text>}
     </View>

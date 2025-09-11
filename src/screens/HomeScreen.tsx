@@ -42,7 +42,6 @@ import {
   getUserContributionsApi, 
   getUserContributionsByGroupApi,
   getCurrentUserApi,
-  debugTotalSavingsApi,
   api 
 } from '../services/api';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -139,8 +138,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         return;
       }
       
-      // Run debug function to test all endpoints
-      await debugTotalSavingsApi();
+      // Debug function removed to prevent 404 errors
       
       // Get total savings with multiple fallbacks using exact website API structure
       let totalSavings = 0;

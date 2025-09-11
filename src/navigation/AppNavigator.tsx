@@ -24,6 +24,7 @@ import ContributionScreen from '../screens/ContributionScreen';
 import SavingsSummaryScreen from '../screens/SavingsSummaryScreen';
 import InviteMembersScreen from '../screens/InviteMembersScreen';
 import GroupSettingsScreen from '../screens/GroupSettingsScreen';
+import GroupHistoryScreen from '../screens/GroupHistoryScreen';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -49,6 +50,7 @@ export type RootStackParamList = {
   SavingsSummary: { groupId: number };
   InviteMembers: { groupId: number };
   GroupSettings: { groupId: number };
+  GroupHistory: { groupId: number };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -91,6 +93,7 @@ const AppNavigator = () => {
       <Stack.Screen name="SavingsSummary" component={SavingsSummaryScreen} options={{ title: 'Savings Summary' }} />
       <Stack.Screen name="InviteMembers" component={InviteMembersScreen} options={{ title: 'Invite Members' }} />
       <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} options={{ title: 'Group Settings' }} />
+      <Stack.Screen name="GroupHistory" component={GroupHistoryScreen} options={{ title: 'Group History' }} />
     </Stack.Navigator>
   );
 };
