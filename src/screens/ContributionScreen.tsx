@@ -1047,16 +1047,6 @@ const styles = StyleSheet.create({
     color: colors.danger,
     textAlign: 'center',
   },
-  retryButton: {
-    backgroundColor: colors.brandTeal,
-    paddingHorizontal: spacing.l,
-    paddingVertical: spacing.m,
-    borderRadius: spacing.m,
-  },
-  retryButtonText: {
-    ...typography.labelLarge,
-    color: colors.white,
-  },
   // UPI Payment Method Styles
   paymentMethodHeader: {
     flexDirection: 'row',
